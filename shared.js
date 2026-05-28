@@ -17,6 +17,11 @@ const Auth = {
   clearUser() { localStorage.removeItem('espressgo_user'); },
   isLoggedIn() { return !!this.getUser(); },
   login(email, password) {
+    if (email === 'admin@espressgo.sg' && password === 'admin123') {
+      localStorage.setItem('espressgo_admin', 'true');
+      this.setUser({ email, companyName: 'ESPRESSGO Admin', contactName: 'System Admin', businessType: 'Admin', deliveryAddress: 'Admin HQ, Singapore' });
+      return { ok: true, isAdmin: true };
+    }
     // Demo: any account registered, or fallback demo credentials
     const saved = this.getUser();
     if (email === 'test@gmail.com' && password === '123') {
@@ -196,7 +201,7 @@ function buildNav(activePage) {
 `;
 
   const rightDesktop = loggedIn ? `
-    <a href="admin/admin-login.html" class="nav-admin-btn" style="font-size:12px;">🛡 Admin</a>
+    <a href="admin/admin-login.html" class="nav-admin-btn">🛡 Admin</a>
     <div class="nav-divider"></div>
     <div style="position:relative;">
       <button id="user-menu-btn" style="display:flex;align-items:center;gap:.6rem;padding:.4rem .6rem;border-radius:10px;background:none;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.08)'" onmouseout="this.style.background='none'">
@@ -207,14 +212,14 @@ function buildNav(activePage) {
         </div>
         <span style="color:#6B5744;font-size:11px;">▾</span>
       </button>
-      <div id="user-menu-dropdown" style="display:none;position:absolute;right:0;top:calc(100%+8px);width:210px;background:#fff;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.12);border:1px solid #EDE8E3;overflow:hidden;z-index:200;">
-        <div style="padding:.75rem 1rem;border-bottom:1px solid #F0EAE4;">
-          <div style="font-size:14px;color:#2C1810;">${user.companyName}</div>
-          <div style="font-size:11px;color:#8B7355;">${user.email}</div>
+      <div id="user-menu-dropdown" class="user-menu-dropdown">
+        <div class="user-menu-header">
+          <div class="user-menu-company">${user.companyName}</div>
+          <div class="user-menu-email">${user.email}</div>
         </div>
-        <a href="account.html" style="display:flex;align-items:center;gap:.6rem;padding:.65rem 1rem;font-size:14px;color:#2C1810;transition:background .15s;" onmouseover="this.style.background='#FAF8F5'" onmouseout="this.style.background='none'">👤 My Account</a>
+        <a href="account.html" class="user-menu-link">👤 My Account</a>
         <div style="height:1px;background:#F0EAE4;"></div>
-        <button onclick="handleLogout()" style="width:100%;display:flex;align-items:center;gap:.6rem;padding:.65rem 1rem;font-size:14px;color:#ef4444;background:none;border:none;cursor:pointer;transition:background .15s;" onmouseover="this.style.background='#fff5f5'" onmouseout="this.style.background='none'">🚪 Sign Out</button>
+        <button onclick="handleLogout()" class="user-menu-logout">🚪 Sign Out</button>
       </div>
     </div>
   ` : `<a href="login.html" class="nav-btn">Sign In</a>`;
@@ -369,10 +374,33 @@ document.addEventListener('DOMContentLoaded', () => {
       <a href="https://wa.me/6587977961" target="_blank" rel="noopener noreferrer" class="social-float-btn whatsapp" aria-label="WhatsApp">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.031 0C5.385 0 0 5.386 0 12.031c0 2.146.561 4.241 1.626 6.096L.18 24l6.02-1.583C7.994 23.366 10.002 24 12.031 24 18.675 24 24 18.614 24 11.97 24 5.326 18.675 0 12.031 0zM12 21.921c-1.847 0-3.655-.494-5.239-1.428l-.375-.221-3.879 1.018 1.036-3.774-.243-.384A9.873 9.873 0 0 1 1.944 12c0-5.466 4.453-9.919 9.923-9.919 5.467 0 9.922 4.454 9.922 9.92S17.467 21.92 12 21.921zm5.45-7.462c-.298-.15-1.767-.872-2.039-.972-.274-.1-.472-.15-.672.15-.199.299-.77 .972-.944 1.17-.174.199-.348.225-.646.075-.298-.15-1.26-.464-2.4-1.485-.886-.793-1.484-1.774-1.658-2.073-.174-.299-.019-.462.13-.611.135-.134.298-.349.447-.523.149-.174.199-.299.298-.499.1-.198.05-.373-.024-.523-.075-.15-.672-1.621-.92-2.22-.242-.584-.488-.505-.672-.514-.174-.01-.373-.01-.572-.01-.199 0-.523.075-.797.374-.274.298-1.045 1.02-1.045 2.49 0 1.47 1.07 2.89 1.219 3.09.15.199 2.106 3.214 5.101 4.506.711.306 1.266.49 1.698.627.714.226 1.365.194 1.88.118.577-.085 1.767-.722 2.016-1.42.249-.697.249-1.295.174-1.42-.074-.124-.274-.198-.572-.348z"/></svg>
       </a>
-      <button class="social-float-btn faq" id="faq-toggle-btn" aria-label="FAQ Agent">
+      <button class="social-float-btn faq" id="faq-toggle-btn" aria-label="KOPIGO FAQ Mascot">
         <span class="notification-badge" id="faq-badge"></span>
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2C6.477 2 2 5.82 2 10.5c0 2.502 1.285 4.747 3.326 6.27-.14 1.155-.71 2.967-1.426 3.824 0 0 2.128-.112 4.417-1.48A12.753 12.753 0 0012 19c5.523 0 10-3.82 10-8.5S17.523 2 12 2zm1 12.5h-2v-2h2v2zm0-3.5h-2V7h2v4z"/>
+        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;">
+          <!-- Saucer -->
+          <ellipse cx="50" cy="80" rx="35" ry="10" fill="#2C1810" opacity="0.15"/>
+          <ellipse cx="50" cy="78" rx="28" ry="7" fill="#C8853A" opacity="0.3"/>
+          <!-- Cup Body -->
+          <path d="M25 35 C25 68, 30 72, 50 72 C70 72, 75 68, 75 35 Z" fill="#2C1810"/>
+          <path d="M27 37 C27 66, 32 70, 50 70 C68 70, 73 66, 73 37 Z" fill="#F5E6D3"/>
+          <!-- Cup Rim / Liquid -->
+          <ellipse cx="50" cy="35" rx="25" ry="7" fill="#C8853A"/>
+          <ellipse cx="50" cy="35" rx="22" ry="5" fill="#3D2817"/>
+          <!-- Handle -->
+          <path d="M74 42 C84 42, 84 62, 74 62" stroke="#2C1810" stroke-width="5" stroke-linecap="round" fill="none"/>
+          <path d="M74 42 C84 42, 84 62, 74 62" stroke="#F5E6D3" stroke-width="2" stroke-linecap="round" fill="none"/>
+          <!-- Steam -->
+          <path d="M42 22 Q46 15 42 10" stroke="#C8853A" stroke-width="3" stroke-linecap="round" opacity="0.75"/>
+          <path d="M50 25 Q54 18 50 12" stroke="#C8853A" stroke-width="3" stroke-linecap="round" opacity="0.75"/>
+          <path d="M58 22 Q62 15 58 10" stroke="#C8853A" stroke-width="3" stroke-linecap="round" opacity="0.75"/>
+          <!-- Cute Face -->
+          <circle cx="42" cy="52" r="3.5" fill="#2C1810"/>
+          <circle cx="41" cy="50.5" r="1" fill="#fff"/>
+          <circle cx="58" cy="52" r="3.5" fill="#2C1810"/>
+          <circle cx="57" cy="50.5" r="1" fill="#fff"/>
+          <path d="M47 57 Q50 60 53 57" stroke="#2C1810" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+          <circle cx="36" cy="56" r="3" fill="#ef4444" opacity="0.35"/>
+          <circle cx="64" cy="56" r="3" fill="#ef4444" opacity="0.35"/>
         </svg>
       </button>
     </div>
@@ -380,12 +408,35 @@ document.addEventListener('DOMContentLoaded', () => {
     <div class="faq-widget" id="faq-chat-widget">
       <div class="faq-widget-header">
         <div class="faq-header-info">
-          <div class="faq-avatar">☕</div>
+          <div class="faq-avatar">
+            <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;">
+              <!-- Saucer -->
+              <ellipse cx="50" cy="80" rx="35" ry="10" fill="#2C1810" opacity="0.15"/>
+              <ellipse cx="50" cy="78" rx="28" ry="7" fill="#C8853A" opacity="0.3"/>
+              <!-- Cup Body -->
+              <path d="M25 35 C25 68, 30 72, 50 72 C70 72, 75 68, 75 35 Z" fill="#2C1810"/>
+              <path d="M27 37 C27 66, 32 70, 50 70 C68 70, 73 66, 73 37 Z" fill="#F5E6D3"/>
+              <!-- Cup Rim / Liquid -->
+              <ellipse cx="50" cy="35" rx="25" ry="7" fill="#C8853A"/>
+              <ellipse cx="50" cy="35" rx="22" ry="5" fill="#3D2817"/>
+              <!-- Handle -->
+              <path d="M74 42 C84 42, 84 62, 74 62" stroke="#2C1810" stroke-width="5" stroke-linecap="round" fill="none"/>
+              <path d="M74 42 C84 42, 84 62, 74 62" stroke="#F5E6D3" stroke-width="2" stroke-linecap="round" fill="none"/>
+              <!-- Cute Face -->
+              <circle cx="42" cy="52" r="3.5" fill="#2C1810"/>
+              <circle cx="41" cy="50.5" r="1" fill="#fff"/>
+              <circle cx="58" cy="52" r="3.5" fill="#2C1810"/>
+              <circle cx="57" cy="50.5" r="1" fill="#fff"/>
+              <path d="M47 57 Q50 60 53 57" stroke="#2C1810" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+              <circle cx="36" cy="56" r="3" fill="#ef4444" opacity="0.35"/>
+              <circle cx="64" cy="56" r="3" fill="#ef4444" opacity="0.35"/>
+            </svg>
+          </div>
           <div>
-            <div class="faq-status-title">EspressGo Helper</div>
+            <div class="faq-status-title">KOPIGO</div>
             <div class="faq-status-sub">
               <span class="pulse-dot" style="width: 7px; height: 7px; background: #22c55e;"></span>
-              AI Agent · Online
+              AI Concierge · Online
             </div>
           </div>
         </div>
@@ -479,6 +530,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }, true);
 
   let hasInitialized = false;
+  let chatHistory = [];
 
   // Render clickable question buttons
   function renderOptions() {
@@ -567,6 +619,9 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
           removeTypingIndicator();
           addMessage('agent', matchedFaq.answer);
+          chatHistory.push({ role: 'user', content: queryText });
+          chatHistory.push({ role: 'agent', content: matchedFaq.answer });
+          if (chatHistory.length > 12) chatHistory.splice(0, chatHistory.length - 12);
           setControlsDisabled(false);
           faqChatBody.scrollTop = faqChatBody.scrollHeight;
           faqUserInput.focus();
@@ -587,7 +642,13 @@ document.addEventListener('DOMContentLoaded', () => {
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ question: queryText })
+          body: JSON.stringify({
+            question: queryText,
+            history: chatHistory,
+            user: Auth.getUser(),
+            cart: JSON.parse(localStorage.getItem('espressgo_cart') || '{}'),
+            orders: Orders.getAll()
+          })
         });
 
         removeTypingIndicator();
@@ -603,6 +664,11 @@ document.addEventListener('DOMContentLoaded', () => {
           const cleanedAnswer = rawAnswer.replace(/\[\[.*?\]\]/g, '').trim();
 
           addMessage('agent', cleanedAnswer);
+
+          // Track in chat history
+          chatHistory.push({ role: 'user', content: queryText });
+          chatHistory.push({ role: 'agent', content: cleanedAnswer });
+          if (chatHistory.length > 12) chatHistory.splice(0, chatHistory.length - 12);
 
           // If the AI trigger is found, update the cart dynamically!
           if (orderMatch) {
@@ -660,7 +726,7 @@ document.addEventListener('DOMContentLoaded', () => {
     hasInitialized = true;
 
     // Greeting Message
-    addMessage('agent', "Hello B2B partner! 👋 I am your Smart AI-powered EspressGo Assistant, powered by OpenRouter. Ask me anything about our wholesale pricing, Singapore logistics, caffeine parameters, or procurement! \n\nOr click a shortcut question to begin:");
+    addMessage('agent', "Hello B2B partner! 👋 I am your Smart AI-powered KOPIGO Concierge, powered by Gemini via OpenRouter. Ask me anything about our wholesale pricing, Singapore logistics, caffeine parameters, or procurement! \n\nOr click a shortcut question to begin:");
     renderOptions();
   }
 

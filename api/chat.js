@@ -61,7 +61,7 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed. Use POST.' });
   }
 
-  const { question } = req.body || {};
+  const { question, history, user, cart, orders } = req.body || {};
   if (!question || typeof question !== 'string') {
     return res.status(400).json({ error: 'Missing parameter: "question" string is required.' });
   }
@@ -73,7 +73,18 @@ module.exports = async function handler(req, res) {
     let mockAnswer = "";
     const qLower = question.toLowerCase();
 
-    if (qLower.includes('halal')) {
+    if (user && (qLower.includes('who am i') || qLower.includes('my name') || qLower.includes('company'))) {
+      mockAnswer = `Hello! You are logged in as **${user.contactName}** representing **${user.companyName}** (Business Type: ${user.businessType}). How can KOPIGO help your company today? ☕ *(Local Mock Mode)*`;
+    } else if (cart && Object.keys(cart).length > 0 && (qLower.includes('my cart') || qLower.includes('what did i order') || qLower.includes('what is in my cart') || qLower.includes('cart details'))) {
+      const items = Object.entries(cart).map(([prodId, qty]) => {
+        const prodName = prodId === 'espressgo-original' ? 'ESPRESSGO Original' : (prodId === 'espressgo-oatmilk' ? 'ESPRESSGO Oat Milk' : prodId);
+        return `• **${prodName}**: ${qty} carton(s) (${qty * 50} pouches)`;
+      }).join('\n');
+      mockAnswer = `Your current B2B cart draft contains:\n\n${items}\n\nWould you like me to draft an order or add more? ☕ *(Local Mock Mode)*`;
+    } else if (orders && Array.isArray(orders) && orders.length > 0 && (qLower.includes('order status') || qLower.includes('my orders') || qLower.includes('track order') || qLower.includes('where is my order') || qLower.includes('status of order'))) {
+      const orderList = orders.slice(0, 2).map(o => `• **Order #${o.id}**: SGD $${o.totalAmount.toFixed(2)} | Status: [${o.status.toUpperCase()}] | Date: ${new Date(o.dateOrdered).toLocaleDateString('en-SG')}`).join('\n');
+      mockAnswer = `Here are your recent B2B orders:\n\n${orderList}\n\nAll standard SG deliveries take 2-3 business days. You can view full tracking in your Account Dashboard! 🚚 *(Local Mock Mode)*`;
+    } else if (qLower.includes('halal')) {
       mockAnswer = "Yes, absolutely! **EspressGo is 100% Halal-certified**. All of our manufacturing lines in Singapore follow MUIS guidelines. (Note: *This is a local demonstration reply. Add your `OPENROUTER_API_KEY` to Vercel to activate real Gemini AI*).";
     } else if (qLower.includes('delivery') || qLower.includes('long')) {
       mockAnswer = "Standard B2B delivery in Singapore takes **2 to 3 business days**. For urgent orders submitted before 12 PM, we offer next-day express courier service for an extra SGD 15. (Note: *This is a local demonstration reply. Add your `OPENROUTER_API_KEY` to Vercel to activate real Gemini AI*).";
@@ -86,14 +97,14 @@ module.exports = async function handler(req, res) {
   }
 
   const systemInstruction = `
-You are "Kopi", the official AI Sales Concierge for ESPRESSGO — Singapore's premium B2B cold-brew espresso gel brand.
+You are "KOPIGO", the official AI Sales Concierge for ESPRESSGO — Singapore's premium B2B cold-brew espresso gel brand.
 You are warm, professional, energetic, and fiercely loyal to the ESPRESSGO brand. You speak like a premium coffee sales expert who genuinely loves the product.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PERSONA RULES (NEVER BREAK THESE):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- You are KOPI, ESPRESSGO's AI concierge. You are NOT ChatGPT, Gemini, DeepSeek, or any other public AI.
-- If asked "what AI are you?", "what model?", or "are you ChatGPT?", reply: "I'm Kopi, ESPRESSGO's in-house AI Sales Concierge! I'm here to help you fuel your team with Singapore's best cold-brew gel shots. ☕ How can I assist your procurement today?"
+- You are KOPIGO, ESPRESSGO's AI concierge. You are NOT ChatGPT, Gemini, DeepSeek, or any other public AI.
+- If asked "what AI are you?", "what model?", or "are you ChatGPT?", reply: "I'm KOPIGO, ESPRESSGO's in-house AI Sales Concierge! I'm here to help you fuel your team with Singapore's best cold-brew gel shots. ☕ How can I assist your procurement today?"
 - ONLY answer questions related to ESPRESSGO products, pricing, B2B logistics, coffee, or orders.
 - If asked about unrelated topics (weather, stocks, coding, politics, etc.), politely redirect: "I'm best at helping with ESPRESSGO orders and B2B coffee solutions! How can I fuel your team today?"
 - Always address buyers as "B2B Partner", "Procurement Manager", or by their implied role.
@@ -195,13 +206,45 @@ USEFUL PAGE LINKS (use HTML anchor tags):
 - WhatsApp Damien: <a href="https://wa.me/6587977961" target="_blank">Chat on WhatsApp</a>
 `;
 
+  // Build real-time context instructions
+  let contextInstruction = "\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nACTIVE BUYER CONTEXT (REAL-TIME):\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+  if (user) {
+    contextInstruction += `- LOGGED-IN USER: You are chatting with ${user.contactName || 'a representative'} from "${user.companyName || 'their business'}".\n`;
+    contextInstruction += `  - Email: ${user.email}\n`;
+    contextInstruction += `  - Business Type: ${user.businessType || 'N/A'}\n`;
+    contextInstruction += `  - Delivery Address: ${user.deliveryAddress || 'Not set yet'}\n`;
+    contextInstruction += `  - Action: Always refer to them warmly by name or company when greeting/chatting.\n`;
+  } else {
+    contextInstruction += `- NOT LOGGED-IN: The buyer is browsing anonymously. Direct them to sign in or register at the <a href="login.html">Sign In page</a> to check out tier pricing, view their order history, or finalize their cart.\n`;
+  }
+
+  if (cart && Object.keys(cart).length > 0) {
+    contextInstruction += `- CURRENT SHOPPING CART:\n`;
+    for (const [prodId, qty] of Object.entries(cart)) {
+      const prodName = prodId === 'espressgo-original' ? 'ESPRESSGO Original' : (prodId === 'espressgo-oatmilk' ? 'ESPRESSGO Oat Milk' : prodId);
+      contextInstruction += `  - ${prodName}: ${qty} carton(s) (${qty * 50} pouches)\n`;
+    }
+    contextInstruction += `  - Action: You know what they have in their cart! If they ask "what's in my cart" or "how much does my cart cost", answer accurately. Original is SGD $120/$108/$96, Oat Milk is SGD $130/$117/$104 based on their quantities. (Remember standard tiered pricing!).\n`;
+  } else {
+    contextInstruction += `- CURRENT SHOPPING CART: Empty. Encourage them to add some cartons of ESPRESSGO Original or ESPRESSGO Oat Milk!\n`;
+  }
+
+  if (orders && Array.isArray(orders) && orders.length > 0) {
+    contextInstruction += `- ORDER HISTORY (Recent first):\n`;
+    orders.slice(0, 3).forEach(o => {
+      contextInstruction += `  - Order #${o.id}: Total SGD $${o.totalAmount.toFixed(2)} (${o.totalCartons} cartons) | Status: [${o.status.toUpperCase()}] | Date: ${new Date(o.dateOrdered).toLocaleDateString('en-SG')}\n`;
+    });
+    contextInstruction += `  - Action: If they ask about their order status (e.g. "where is my order" or "what is the status of my order #1234"), look it up from the history above and answer directly with status (pending, processing, shipped, delivered) and delivery times!\n`;
+  } else {
+    contextInstruction += `- ORDER HISTORY: No previous orders found on this device.\n`;
+  }
+
   try {
+    // Streamlined model failover list (Top 3 most reliable and fast free models)
     const models = [
       'google/gemini-2.5-flash:free',
-      'meta-llama/llama-3-8b-instruct:free',
-      'qwen/qwen-2.5-coder-32b-instruct:free',
-      'microsoft/phi-3-medium-128k-instruct:free',
-      'liquid/lfm-2.5-1.2b-instruct:free'
+      'meta-llama/llama-3.3-70b-instruct:free',
+      'qwen/qwen-2.5-coder-32b-instruct:free'
     ];
 
     let lastErrorText = '';
@@ -224,12 +267,26 @@ USEFUL PAGE LINKS (use HTML anchor tags):
     for (const model of models) {
       try {
         console.log(`[Proxy] Trying model: ${model}`);
+        
+        // Build stateful message sequence including history
+        const messagesPayload = [
+          { role: 'system', content: systemInstruction + contextInstruction }
+        ];
+
+        if (Array.isArray(history)) {
+          // Slice the last 6 messages to keep context window tight, fast, and cost-effective
+          const recentHistory = history.slice(-6);
+          recentHistory.forEach(msg => {
+            const apiRole = msg.role === 'agent' ? 'assistant' : (msg.role === 'assistant' ? 'assistant' : 'user');
+            messagesPayload.push({ role: apiRole, content: msg.content });
+          });
+        }
+
+        messagesPayload.push({ role: 'user', content: question });
+
         const payload = {
           model: model,
-          messages: [
-            { role: 'system', content: systemInstruction },
-            { role: 'user', content: question }
-          ],
+          messages: messagesPayload,
           temperature: 0.4,
           max_tokens: 500
         };

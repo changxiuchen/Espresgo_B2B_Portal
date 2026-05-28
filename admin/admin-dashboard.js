@@ -13,6 +13,9 @@ if (localStorage.getItem('espressgo_admin') !== 'true') {
 // ── Admin logout ──────────────────────────────────────────
 function adminLogout() {
   localStorage.removeItem('espressgo_admin');
+  if (typeof Auth !== 'undefined') {
+    Auth.logout();
+  }
   window.location.href = 'admin-login.html';
 }
 

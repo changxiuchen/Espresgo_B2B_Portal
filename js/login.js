@@ -172,7 +172,11 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
   }
 
   if (result.ok) {
-    window.location.href = 'catalog.html';
+    if (result.isAdmin) {
+      window.location.href = 'admin/admin-dashboard.html';
+    } else {
+      window.location.href = 'catalog.html';
+    }
   } else {
     document.getElementById('server-err-text').textContent = result.error || 'Something went wrong. Please try again.';
     document.getElementById('server-err').style.display    = 'flex';
