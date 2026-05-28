@@ -262,11 +262,14 @@ USEFUL PAGE LINKS (use HTML anchor tags):
   }
 
   try {
-    // Streamlined model failover list (Top 3 most reliable and fast free models)
+    // Elite model failover list combining premium free models and ultra-cheap paid models to bypass free-tier rate limits with 100% reliability
     const models = [
       'google/gemini-2.5-flash:free',
-      'meta-llama/llama-3.3-70b-instruct:free',
-      'qwen/qwen-2.5-coder-32b-instruct:free'
+      'google/gemini-2.5-flash',
+      'deepseek/deepseek-chat',
+      'meta-llama/llama-3-8b-instruct:free',
+      'microsoft/phi-3-medium-128k-instruct:free',
+      'liquid/lfm-2.5-1.2b-instruct:free'
     ];
 
     let lastErrorText = '';
