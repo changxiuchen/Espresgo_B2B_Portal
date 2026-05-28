@@ -696,15 +696,15 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           console.error('API non-OK response status:', response.status);
           if (response.status === 404 && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-            addMessage('agent', "⚠️ **Local Server Route Warning**: It looks like you are running a static local server (like Python's `http.server` or VS Code Live Server). Static servers **cannot** run Node.js backend routes (like `/api/chat.js`), which causes this local 404 error. \n\nTo test the generative AI locally, please run `npx vercel dev` in your command line, or visit the live production site to try it out: **[espresgo-b2-b-portal.vercel.app](https://espresgo-b2-b-portal.vercel.app/catalog)**! 👋");
+            addMessage('agent', "⚠️ **Local Server Route Warning**: It looks like you are running a static local server (like Python's `http.server` or VS Code Live Server). Static servers **cannot** run Node.js backend routes (like `/api/chat.js`), which causes this local 404 error. \n\nTo test the generative AI locally, please run `npx vercel dev` in your command line, or visit the live production site: **[espresgo-b2-b-portal.vercel.app](https://espresgo-b2-b-portal.vercel.app/catalog)**! 👋 \n\nWe apologize for the confusion! For immediate direct B2B inquiries or custom support, please feel free to reach out to **Damien Teo** via <a href='https://wa.me/6587977961' target='_blank'>WhatsApp</a> or <a href='https://www.linkedin.com/in/damien-teo-371b31257' target='_blank'>LinkedIn</a>! ☕");
           } else {
-            addMessage('agent', "My serverless coffee brain encountered a temporary glitch. Please feel free to request quick custom assistance directly from Damien via WhatsApp!");
+            addMessage('agent', "We are incredibly sorry, but our AI concierge is experiencing a temporary hiccup right now! ☕ Please accept our sincere apologies for the inconvenience. \n\nFor immediate custom assistance, wholesale orders, or premium pricing queries, please feel free to reach out directly to **Damien Teo** via <a href='https://wa.me/6587977961' target='_blank'>WhatsApp</a> or connect with him on <a href='https://www.linkedin.com/in/damien-teo-371b31257' target='_blank'>LinkedIn</a>. We'd love to help you get fueled! 🙏");
           }
         }
       } catch (error) {
         removeTypingIndicator();
         console.error('Fetch client connection exception:', error);
-        addMessage('agent', "I couldn't contact my database server. If you are testing locally, make sure you ran `vercel dev` instead of a static server so the `/api` routes are fully activated!");
+        addMessage('agent', "We are so sorry, but we had trouble reaching our chat servers! ☕ Please accept our sincere apologies for this temporary connection issue. \n\nIf you are running the project locally, please verify that you launched using `vercel dev` instead of a static server to fully activate the `/api` routes. Otherwise, please feel free to contact **Damien Teo** directly via <a href='https://wa.me/6587977961' target='_blank'>WhatsApp</a> or <a href='https://www.linkedin.com/in/damien-teo-371b31257' target='_blank'>LinkedIn</a> for wholesale procurement assistance. We're always here to support you! 🙏");
       } finally {
         setControlsDisabled(false);
         faqChatBody.scrollTop = faqChatBody.scrollHeight;
