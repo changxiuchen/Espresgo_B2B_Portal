@@ -61,7 +61,15 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed. Use POST.' });
   }
 
-  const { question, history, user, cart, orders } = req.body || {};
+  let body = req.body;
+  if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body);
+    } catch (e) {
+      body = {};
+    }
+  }
+  const { question, history, user, cart, orders } = body || {};
   if (!question || typeof question !== 'string') {
     return res.status(400).json({ error: 'Missing parameter: "question" string is required.' });
   }
@@ -69,20 +77,27 @@ module.exports = async function handler(req, res) {
   const apiKey = process.env.OPENROUTER_API_KEY;
 
   // Friendly fallback if key is not configured yet (for instant ease-of-use/testing)
-  if (!apiKey) {
+  if (!apiKey || apiKey === 'undefined' || apiKey === 'null' || apiKey.trim() === '') {
     let mockAnswer = "";
     const qLower = question.toLowerCase();
 
     if (user && (qLower.includes('who am i') || qLower.includes('my name') || qLower.includes('company'))) {
-      mockAnswer = `Hello! You are logged in as **${user.contactName}** representing **${user.companyName}** (Business Type: ${user.businessType}). How can KOPIGO help your company today? ☕ *(Local Mock Mode)*`;
-    } else if (cart && Object.keys(cart).length > 0 && (qLower.includes('my cart') || qLower.includes('what did i order') || qLower.includes('what is in my cart') || qLower.includes('cart details'))) {
+      mockAnswer = `Hello! You are logged in as **${user.contactName || 'Valued Partner'}** representing **${user.companyName || 'ESPRESSGO Customer'}** (Business Type: ${user.businessType || 'B2B'}). How can KOPIGO help your company today? ☕ *(Local Mock Mode)*`;
+    } else if (cart && typeof cart === 'object' && !Array.isArray(cart) && Object.keys(cart).length > 0 && (qLower.includes('my cart') || qLower.includes('what did i order') || qLower.includes('what is in my cart') || qLower.includes('cart details'))) {
       const items = Object.entries(cart).map(([prodId, qty]) => {
         const prodName = prodId === 'espressgo-original' ? 'ESPRESSGO Original' : (prodId === 'espressgo-oatmilk' ? 'ESPRESSGO Oat Milk' : prodId);
         return `• **${prodName}**: ${qty} carton(s) (${qty * 50} pouches)`;
       }).join('\n');
       mockAnswer = `Your current B2B cart draft contains:\n\n${items}\n\nWould you like me to draft an order or add more? ☕ *(Local Mock Mode)*`;
     } else if (orders && Array.isArray(orders) && orders.length > 0 && (qLower.includes('order status') || qLower.includes('my orders') || qLower.includes('track order') || qLower.includes('where is my order') || qLower.includes('status of order'))) {
-      const orderList = orders.slice(0, 2).map(o => `• **Order #${o.id}**: SGD $${o.totalAmount.toFixed(2)} | Status: [${o.status.toUpperCase()}] | Date: ${new Date(o.dateOrdered).toLocaleDateString('en-SG')}`).join('\n');
+      const orderList = orders.slice(0, 2).map(o => {
+        if (!o) return '';
+        const orderId = o.id || 'N/A';
+        const amount = typeof o.totalAmount === 'number' ? o.totalAmount.toFixed(2) : (o.totalAmount || '0.00');
+        const status = o.status ? String(o.status).toUpperCase() : 'PENDING';
+        const dateStr = o.dateOrdered ? new Date(o.dateOrdered).toLocaleDateString('en-SG') : 'N/A';
+        return `• **Order #${orderId}**: SGD $${amount} | Status: [${status}] | Date: ${dateStr}`;
+      }).filter(Boolean).join('\n');
       mockAnswer = `Here are your recent B2B orders:\n\n${orderList}\n\nAll standard SG deliveries take 2-3 business days. You can view full tracking in your Account Dashboard! 🚚 *(Local Mock Mode)*`;
     } else if (qLower.includes('halal')) {
       mockAnswer = "Yes, absolutely! **EspressGo is 100% Halal-certified**. All of our manufacturing lines in Singapore follow MUIS guidelines. (Note: *This is a local demonstration reply. Add your `OPENROUTER_API_KEY` to Vercel to activate real Gemini AI*).";
@@ -206,11 +221,11 @@ USEFUL PAGE LINKS (use HTML anchor tags):
 - WhatsApp Damien: <a href="https://wa.me/6587977961" target="_blank">Chat on WhatsApp</a>
 `;
 
-  // Build real-time context instructions
+  // Build real-time context instructions safely
   let contextInstruction = "\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nACTIVE BUYER CONTEXT (REAL-TIME):\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
-  if (user) {
+  if (user && typeof user === 'object') {
     contextInstruction += `- LOGGED-IN USER: You are chatting with ${user.contactName || 'a representative'} from "${user.companyName || 'their business'}".\n`;
-    contextInstruction += `  - Email: ${user.email}\n`;
+    contextInstruction += `  - Email: ${user.email || 'N/A'}\n`;
     contextInstruction += `  - Business Type: ${user.businessType || 'N/A'}\n`;
     contextInstruction += `  - Delivery Address: ${user.deliveryAddress || 'Not set yet'}\n`;
     contextInstruction += `  - Action: Always refer to them warmly by name or company when greeting/chatting.\n`;
@@ -218,7 +233,7 @@ USEFUL PAGE LINKS (use HTML anchor tags):
     contextInstruction += `- NOT LOGGED-IN: The buyer is browsing anonymously. Direct them to sign in or register at the <a href="login.html">Sign In page</a> to check out tier pricing, view their order history, or finalize their cart.\n`;
   }
 
-  if (cart && Object.keys(cart).length > 0) {
+  if (cart && typeof cart === 'object' && !Array.isArray(cart) && Object.keys(cart).length > 0) {
     contextInstruction += `- CURRENT SHOPPING CART:\n`;
     for (const [prodId, qty] of Object.entries(cart)) {
       const prodName = prodId === 'espressgo-original' ? 'ESPRESSGO Original' : (prodId === 'espressgo-oatmilk' ? 'ESPRESSGO Oat Milk' : prodId);
@@ -232,7 +247,14 @@ USEFUL PAGE LINKS (use HTML anchor tags):
   if (orders && Array.isArray(orders) && orders.length > 0) {
     contextInstruction += `- ORDER HISTORY (Recent first):\n`;
     orders.slice(0, 3).forEach(o => {
-      contextInstruction += `  - Order #${o.id}: Total SGD $${o.totalAmount.toFixed(2)} (${o.totalCartons} cartons) | Status: [${o.status.toUpperCase()}] | Date: ${new Date(o.dateOrdered).toLocaleDateString('en-SG')}\n`;
+      if (o && typeof o === 'object') {
+        const orderId = o.id || 'N/A';
+        const totalAmount = typeof o.totalAmount === 'number' ? o.totalAmount.toFixed(2) : (o.totalAmount || '0.00');
+        const totalCartons = o.totalCartons || 0;
+        const status = o.status ? String(o.status).toUpperCase() : 'PENDING';
+        const dateStr = o.dateOrdered ? new Date(o.dateOrdered).toLocaleDateString('en-SG') : 'N/A';
+        contextInstruction += `  - Order #${orderId}: Total SGD $${totalAmount} (${totalCartons} cartons) | Status: [${status}] | Date: ${dateStr}\n`;
+      }
     });
     contextInstruction += `  - Action: If they ask about their order status (e.g. "where is my order" or "what is the status of my order #1234"), look it up from the history above and answer directly with status (pending, processing, shipped, delivered) and delivery times!\n`;
   } else {
@@ -277,8 +299,10 @@ USEFUL PAGE LINKS (use HTML anchor tags):
           // Slice the last 6 messages to keep context window tight, fast, and cost-effective
           const recentHistory = history.slice(-6);
           recentHistory.forEach(msg => {
-            const apiRole = msg.role === 'agent' ? 'assistant' : (msg.role === 'assistant' ? 'assistant' : 'user');
-            messagesPayload.push({ role: apiRole, content: msg.content });
+            if (msg && typeof msg === 'object' && msg.role && msg.content) {
+              const apiRole = msg.role === 'agent' ? 'assistant' : (msg.role === 'assistant' ? 'assistant' : 'user');
+              messagesPayload.push({ role: apiRole, content: String(msg.content) });
+            }
           });
         }
 
