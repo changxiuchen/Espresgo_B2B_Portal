@@ -262,12 +262,12 @@ USEFUL PAGE LINKS (use HTML anchor tags):
   }
 
   try {
-    // Elite model failover list combining premium free models and ultra-cheap paid models to bypass free-tier rate limits with 100% reliability
+    // 100% free model failover list using verified, active OpenRouter free model IDs
     const models = [
       'google/gemini-2.5-flash:free',
-      'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
-      'deepseek/deepseek-v4-flash:free',
-      'qwen/qwen3-coder:free',
+      'meta-llama/llama-3-8b-instruct:free',
+      'qwen/qwen-2.5-coder-32b-instruct:free',
+      'nvidia/llama-3.1-nemotron-70b-instruct:free',
       'microsoft/phi-3-medium-128k-instruct:free',
       'liquid/lfm-2.5-1.2b-instruct:free'
     ];
