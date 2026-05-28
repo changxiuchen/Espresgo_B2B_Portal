@@ -6,7 +6,7 @@ const https = require('https');
 function makeHttpsRequest(options, payload) {
   return new Promise((resolve, reject) => {
     const postData = JSON.stringify(payload);
-    
+
     // Add Content-Length dynamically
     options.headers = {
       ...options.headers,
@@ -265,9 +265,9 @@ USEFUL PAGE LINKS (use HTML anchor tags):
     // Elite model failover list combining premium free models and ultra-cheap paid models to bypass free-tier rate limits with 100% reliability
     const models = [
       'google/gemini-2.5-flash:free',
-      'google/gemini-2.5-flash',
-      'deepseek/deepseek-chat',
-      'meta-llama/llama-3-8b-instruct:free',
+      'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+      'deepseek/deepseek-v4-flash:free',
+      'qwen/qwen3-coder:free',
       'microsoft/phi-3-medium-128k-instruct:free',
       'liquid/lfm-2.5-1.2b-instruct:free'
     ];
@@ -292,7 +292,7 @@ USEFUL PAGE LINKS (use HTML anchor tags):
     for (const model of models) {
       try {
         console.log(`[Proxy] Trying model: ${model}`);
-        
+
         // Build stateful message sequence including history
         const messagesPayload = [
           { role: 'system', content: systemInstruction + contextInstruction }
