@@ -290,7 +290,7 @@ function openModal() {
 function closeModal() { modal.classList.remove('open'); }
 
 /** Places the order, clears the cart, and shows a success toast. */
-document.getElementById('modal-place').addEventListener('click', () => {
+document.getElementById('modal-place').addEventListener('click', async () => {
 
   // Prevent guest checkout
   if (typeof Auth !== 'undefined' && !Auth.isLoggedIn()) {
@@ -303,7 +303,7 @@ document.getElementById('modal-place').addEventListener('click', () => {
   const currentUser = Auth.getUser();
   
   const lines = getOrderLines();
-  Orders.add({
+  await Orders.add({
     company: user.companyName,
     contactName: user.email,
     businessType: user.businessType,
