@@ -10,6 +10,8 @@
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
 // ── Supabase Configuration ───────────────────────────────────
 // Replace placeholders with your live credentials in production
 const SUPABASE_URL = "https://aynwtgkmrymnrhzashtf.supabase.co";
@@ -56,6 +58,10 @@ async function getSupabaseClient() {
   return null;
 }
 =======
+=======
+>>>>>>> parent of d1e893d (update)
+=======
+>>>>>>> parent of d1e893d (update)
 =======
 >>>>>>> parent of d1e893d (update)
 // ── Supabase Initialization & Setup ─────────────────────────
@@ -105,6 +111,12 @@ if (isSupabaseEnabled && supabase) {
   });
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> parent of d1e893d (update)
+=======
+>>>>>>> parent of d1e893d (update)
+=======
 >>>>>>> parent of d1e893d (update)
 =======
 >>>>>>> parent of d1e893d (update)
@@ -141,6 +153,8 @@ const Auth = {
   async login(email, password) {
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
     const client = await getSupabaseClient();
     if (!client) {
       // Mock mode fallback
@@ -157,6 +171,10 @@ const Auth = {
       if (saved && saved.email === email && saved._pw === password) return { ok: true };
       return { ok: false, error: 'Invalid email or password.' };
 =======
+=======
+>>>>>>> parent of d1e893d (update)
+=======
+>>>>>>> parent of d1e893d (update)
 =======
 >>>>>>> parent of d1e893d (update)
     if (isSupabaseEnabled && supabase) {
@@ -254,6 +272,12 @@ const Auth = {
     if (isSupabaseEnabled && supabase) {
       const { data, error } = await supabase.auth.signUp({
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> parent of d1e893d (update)
+=======
+>>>>>>> parent of d1e893d (update)
+=======
 >>>>>>> parent of d1e893d (update)
 =======
 >>>>>>> parent of d1e893d (update)
@@ -261,6 +285,8 @@ const Auth = {
         password,
         options: {
           data: {
+<<<<<<< HEAD
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
             contactName,
@@ -283,6 +309,10 @@ const Auth = {
       return { ok: false, error: err.message };
     }
 =======
+=======
+>>>>>>> parent of d1e893d (update)
+=======
+>>>>>>> parent of d1e893d (update)
 =======
 >>>>>>> parent of d1e893d (update)
             contact_name: contactName,
@@ -439,6 +469,8 @@ const Orders = {
   async getAll() {
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
     const client = await getSupabaseClient();
     if (!client) {
       return this.getLocalOrders();
@@ -472,6 +504,10 @@ const Orders = {
 =======
 =======
 >>>>>>> parent of d1e893d (update)
+=======
+>>>>>>> parent of d1e893d (update)
+=======
+>>>>>>> parent of d1e893d (update)
     if (isSupabaseEnabled && supabase) {
       const { data, error } = await supabase
         .from('orders')
@@ -481,6 +517,12 @@ const Orders = {
       if (error) {
         console.error("Failed to query orders from database:", error);
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> parent of d1e893d (update)
+=======
+>>>>>>> parent of d1e893d (update)
+=======
 >>>>>>> parent of d1e893d (update)
 =======
 >>>>>>> parent of d1e893d (update)
@@ -488,6 +530,8 @@ const Orders = {
       }
 
       const mapped = data.map(o => ({
+<<<<<<< HEAD
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
         id: String(o.id),
@@ -517,6 +561,10 @@ const Orders = {
 =======
 =======
 >>>>>>> parent of d1e893d (update)
+=======
+>>>>>>> parent of d1e893d (update)
+=======
+>>>>>>> parent of d1e893d (update)
         id: o.id,
         company: o.company_name,
         contactName: o.contact_name,
@@ -542,6 +590,8 @@ const Orders = {
   save(orders) { localStorage.setItem(this._key, JSON.stringify(orders)); },
   
   async add(order) {
+<<<<<<< HEAD
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
     const client = await getSupabaseClient();
@@ -626,6 +676,10 @@ const Orders = {
       return newOrder;
     }
 =======
+=======
+>>>>>>> parent of d1e893d (update)
+=======
+>>>>>>> parent of d1e893d (update)
 =======
 >>>>>>> parent of d1e893d (update)
     if (isSupabaseEnabled && supabase) {
