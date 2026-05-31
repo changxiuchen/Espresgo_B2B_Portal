@@ -9,6 +9,7 @@
    ============================================================ */
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 // ── Supabase Configuration ───────────────────────────────────
 // Replace placeholders with your live credentials in production
 const SUPABASE_URL = "https://aynwtgkmrymnrhzashtf.supabase.co";
@@ -55,6 +56,8 @@ async function getSupabaseClient() {
   return null;
 }
 =======
+=======
+>>>>>>> parent of d1e893d (update)
 // ── Supabase Initialization & Setup ─────────────────────────
 // Drop your live Supabase credentials here to activate real authentication and PostgreSQL storage!
 const SUPABASE_URL = "";
@@ -101,6 +104,9 @@ if (isSupabaseEnabled && supabase) {
     }
   });
 }
+<<<<<<< HEAD
+>>>>>>> parent of d1e893d (update)
+=======
 >>>>>>> parent of d1e893d (update)
 
 // ── Auth helpers ─────────────────────────────────────────────
@@ -134,6 +140,7 @@ const Auth = {
   
   async login(email, password) {
 <<<<<<< HEAD
+<<<<<<< HEAD
     const client = await getSupabaseClient();
     if (!client) {
       // Mock mode fallback
@@ -150,6 +157,8 @@ const Auth = {
       if (saved && saved.email === email && saved._pw === password) return { ok: true };
       return { ok: false, error: 'Invalid email or password.' };
 =======
+=======
+>>>>>>> parent of d1e893d (update)
     if (isSupabaseEnabled && supabase) {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) return { ok: false, error: error.message };
@@ -244,11 +253,15 @@ const Auth = {
   async register(email, password, companyName, businessType, contactName) {
     if (isSupabaseEnabled && supabase) {
       const { data, error } = await supabase.auth.signUp({
+<<<<<<< HEAD
+>>>>>>> parent of d1e893d (update)
+=======
 >>>>>>> parent of d1e893d (update)
         email,
         password,
         options: {
           data: {
+<<<<<<< HEAD
 <<<<<<< HEAD
             contactName,
             companyName,
@@ -270,6 +283,8 @@ const Auth = {
       return { ok: false, error: err.message };
     }
 =======
+=======
+>>>>>>> parent of d1e893d (update)
             contact_name: contactName,
             company_name: companyName,
             business_type: businessType
@@ -423,6 +438,7 @@ const Orders = {
   
   async getAll() {
 <<<<<<< HEAD
+<<<<<<< HEAD
     const client = await getSupabaseClient();
     if (!client) {
       return this.getLocalOrders();
@@ -454,6 +470,8 @@ const Orders = {
       if (error) {
         console.error("⚠️ Failed to fetch orders from Supabase:", error.message);
 =======
+=======
+>>>>>>> parent of d1e893d (update)
     if (isSupabaseEnabled && supabase) {
       const { data, error } = await supabase
         .from('orders')
@@ -462,11 +480,15 @@ const Orders = {
 
       if (error) {
         console.error("Failed to query orders from database:", error);
+<<<<<<< HEAD
+>>>>>>> parent of d1e893d (update)
+=======
 >>>>>>> parent of d1e893d (update)
         return this.getLocalOrders();
       }
 
       const mapped = data.map(o => ({
+<<<<<<< HEAD
 <<<<<<< HEAD
         id: String(o.id),
         company: o.company,
@@ -493,6 +515,8 @@ const Orders = {
       return this.getLocalOrders();
     }
 =======
+=======
+>>>>>>> parent of d1e893d (update)
         id: o.id,
         company: o.company_name,
         contactName: o.contact_name,
@@ -518,6 +542,7 @@ const Orders = {
   save(orders) { localStorage.setItem(this._key, JSON.stringify(orders)); },
   
   async add(order) {
+<<<<<<< HEAD
 <<<<<<< HEAD
     const client = await getSupabaseClient();
     if (!client) {
@@ -601,6 +626,8 @@ const Orders = {
       return newOrder;
     }
 =======
+=======
+>>>>>>> parent of d1e893d (update)
     if (isSupabaseEnabled && supabase) {
       try {
         const { data: { session } } = await supabase.auth.getSession();
