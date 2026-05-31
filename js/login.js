@@ -166,9 +166,9 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
   // Call Auth helper
   let result;
   if (isLogin) {
-    result = await Auth.login(email, password);
+    result = Auth.login(email, password);
   } else {
-    result = await Auth.register(email, password, companyName, businessType, contactName);
+    result = Auth.register(email, password, companyName, businessType, contactName);
   }
 
   if (result.ok) {

@@ -103,22 +103,18 @@ function toggleOrder(id, suffix = '') { // <-- 1. Accept suffix tracking paramet
 }
 
 /** Duplicates an existing order and adds it as a new pending order. */
-async function handleReorder(id) {
+function handleReorder(id) {
   const o = getMyOrders().find(x => x.id === id);
   if (!o) return;
-  try {
-    const neo = await Orders.add({
-      company: user.companyName, contactName: user.contactName,
-      businessType: user.businessType, items: o.items,
-      totalCartons: o.totalCartons, totalAmount: o.totalAmount,
-      status: 'pending', deliveryAddress: user.deliveryAddress || o.deliveryAddress,
-      notes: `Reorder of #${o.id}`,
-    });
-    showToast(`Reorder placed — #${neo.id}`, `${o.totalCartons} ctn · SGD $${o.totalAmount.toFixed(2)} · Pending`);
-    renderAll();
-  } catch (err) {
-    showToast('Reorder failed', err.message || 'Something went wrong.', 'error');
-  }
+  const neo = Orders.add({
+    company: user.companyName, contactName: user.contactName,
+    businessType: user.businessType, items: o.items,
+    totalCartons: o.totalCartons, totalAmount: o.totalAmount,
+    status: 'pending', deliveryAddress: user.deliveryAddress || o.deliveryAddress,
+    notes: `Reorder of #${o.id}`,
+  });
+  showToast(`Reorder placed — #${neo.id}`, `${o.totalCartons} ctn · SGD $${o.totalAmount.toFixed(2)} · Pending`);
+  renderAll();
 }
 
 /** Generates and downloads a PDF invoice using PDFKit & localized memory streams. */
@@ -517,18 +513,5 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 
 // ── Initialise ────────────────────────────────────────────
 initHero();
-
-// Async database load
-(async () => {
-  try {
-    if (typeof Orders !== 'undefined' && Orders.getAll) {
-      await Orders.getAll();
-      renderAll();
-    }
-  } catch (err) {
-    console.error("Failed to load orders from Supabase on load:", err);
-  }
-})();
-
 renderAll();
 switchTab('overview');

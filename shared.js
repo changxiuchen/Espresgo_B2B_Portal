@@ -12,6 +12,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 // ── Supabase Configuration ───────────────────────────────────
 // Replace placeholders with your live credentials in production
 const SUPABASE_URL = "https://aynwtgkmrymnrhzashtf.supabase.co";
@@ -121,34 +122,17 @@ if (isSupabaseEnabled && supabase) {
 =======
 >>>>>>> parent of d1e893d (update)
 
+=======
+>>>>>>> parent of 1f95353 (ai agent update)
 // ── Auth helpers ─────────────────────────────────────────────
 const Auth = {
   getUser() {
     try { return JSON.parse(localStorage.getItem('espressgo_user') || 'null'); } catch { return null; }
   },
-  setUser(u) { 
-    localStorage.setItem('espressgo_user', JSON.stringify(u)); 
-    // Sync to Supabase profiles database table if logged in and enabled
-    if (isSupabaseEnabled && supabase) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) {
-          supabase.from('profiles').update({
-            company_name: u.companyName,
-            contact_name: u.contactName,
-            business_type: u.businessType,
-            delivery_address: u.deliveryAddress
-          }).eq('id', session.user.id).then(({ error }) => {
-            if (error) console.error("Error updating profile in database:", error);
-          });
-        }
-      });
-    }
-  },
-  clearUser() { 
-    localStorage.removeItem('espressgo_user'); 
-    localStorage.removeItem('espressgo_admin');
-  },
+  setUser(u) { localStorage.setItem('espressgo_user', JSON.stringify(u)); },
+  clearUser() { localStorage.removeItem('espressgo_user'); },
   isLoggedIn() { return !!this.getUser(); },
+<<<<<<< HEAD
   
   async login(email, password) {
 <<<<<<< HEAD
@@ -208,12 +192,16 @@ const Auth = {
     }
 
     // Mock mode fallback
+=======
+  login(email, password) {
+>>>>>>> parent of 1f95353 (ai agent update)
     if (email === 'admin@espressgo.sg' && password === 'admin123') {
       localStorage.setItem('espressgo_admin', 'true');
       this.setUser({ email, companyName: 'ESPRESSGO Admin', contactName: 'System Admin', businessType: 'Admin', deliveryAddress: 'Admin HQ, Singapore' });
       return { ok: true, isAdmin: true };
 >>>>>>> parent of d1e893d (update)
     }
+<<<<<<< HEAD
 
     // Live Supabase Mode
     try {
@@ -257,6 +245,12 @@ const Auth = {
     if (!client) {
       // Mock mode fallback
       this.setUser({ email, companyName, contactName, businessType, deliveryAddress: '', _pw: password });
+=======
+    // Demo: any account registered, or fallback demo credentials
+    const saved = this.getUser();
+    if (email === 'test@gmail.com' && password === '123') {
+      this.setUser({ email, companyName: 'Demo Company', contactName: 'Demo User', businessType: 'Office Manager', deliveryAddress: '1 Marina Boulevard, Singapore 018989' });
+>>>>>>> parent of 1f95353 (ai agent update)
       return { ok: true };
     }
 <<<<<<< HEAD
@@ -268,6 +262,7 @@ const Auth = {
     if (saved && saved.email === email && saved._pw === password) return { ok: true };
     return { ok: false, error: 'Invalid email or password.' };
   },
+<<<<<<< HEAD
   async register(email, password, companyName, businessType, contactName) {
     if (isSupabaseEnabled && supabase) {
       const { data, error } = await supabase.auth.signUp({
@@ -326,10 +321,14 @@ const Auth = {
     }
 
     // Mock mode fallback
+=======
+  register(email, password, companyName, businessType, contactName) {
+>>>>>>> parent of 1f95353 (ai agent update)
     this.setUser({ email, companyName, contactName, businessType, deliveryAddress: '', _pw: password });
     return { ok: true };
 >>>>>>> parent of d1e893d (update)
   },
+<<<<<<< HEAD
 
   async logout() {
     if (isSupabaseEnabled && supabase) {
@@ -375,6 +374,9 @@ const Auth = {
       return false;
     }
   }
+=======
+  logout() { this.clearUser(); },
+>>>>>>> parent of 1f95353 (ai agent update)
 };
 
 // ── Product data ─────────────────────────────────────────────
@@ -465,6 +467,7 @@ function getActiveTier(tiers, qty) {
 // ── Order data ───────────────────────────────────────────────
 const Orders = {
   _key: 'espressgo_orders',
+<<<<<<< HEAD
   
   async getAll() {
 <<<<<<< HEAD
@@ -584,10 +587,13 @@ const Orders = {
   },
   
   getLocalOrders() {
+=======
+  getAll() {
+>>>>>>> parent of 1f95353 (ai agent update)
     try { return JSON.parse(localStorage.getItem(this._key) || '[]'); } catch { return []; }
   },
-  
   save(orders) { localStorage.setItem(this._key, JSON.stringify(orders)); },
+<<<<<<< HEAD
   
   async add(order) {
 <<<<<<< HEAD
@@ -730,6 +736,10 @@ const Orders = {
     }
 
     const all = this.getLocalOrders();
+=======
+  add(order) {
+    const all = this.getAll();
+>>>>>>> parent of 1f95353 (ai agent update)
     const newOrder = {
       ...order,
       id: String(Date.now()).slice(-6),
@@ -740,10 +750,7 @@ const Orders = {
     return newOrder;
 >>>>>>> parent of d1e893d (update)
   },
-  
-  forCompany(name) { 
-    return this.getLocalOrders().filter(o => o.company === name); 
-  },
+  forCompany(name) { return this.getAll().filter(o => o.company === name); },
 };
 
 // ── Toast ────────────────────────────────────────────────────
@@ -1238,7 +1245,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Backend route proxy for production
       try {
-        const resolvedOrders = await Orders.getAll();
         // Query serverless API endpoint
         const response = await fetch('/api/chat', {
           method: 'POST',
@@ -1250,7 +1256,7 @@ document.addEventListener('DOMContentLoaded', () => {
             history: chatHistory,
             user: Auth.getUser(),
             cart: JSON.parse(localStorage.getItem('espressgo_cart') || '{}'),
-            orders: resolvedOrders
+            orders: Orders.getAll()
           })
         });
 

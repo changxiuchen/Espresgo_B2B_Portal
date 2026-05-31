@@ -171,7 +171,7 @@ function renderAll() { renderProductRows(); renderSummary(); }
 
 
 // ── Place order ───────────────────────────────────────────
-document.getElementById('place-order-btn').addEventListener('click', async () => {
+document.getElementById('place-order-btn').addEventListener('click', () => {
   const lines = active.filter(p => getQty(p.id) > 0).map(p => {
     const qty  = getQty(p.id);
     const tier = getActiveTier(p.tiers, qty);
@@ -182,7 +182,7 @@ document.getElementById('place-order-btn').addEventListener('click', async () =>
   const totalCtn = lines.reduce((s, l) => s + l.qty, 0);
   const totalAmt = lines.reduce((s, l) => s + l.subtotal, 0);
 
-  await Orders.add({
+  Orders.add({
     company: user.companyName,
     contactName: user.contactName,
     businessType: user.businessType,
