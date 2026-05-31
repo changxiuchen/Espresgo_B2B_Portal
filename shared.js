@@ -162,7 +162,33 @@ const Auth = {
       };
     }
 
-    const normalizedProfile = this.normalizeProfile(profile, data.user);
+    let finalProfile = profile;
+    if (email.toLowerCase() === 'admin@espressgo.sg') {
+      const profilePayload = {
+        id: data.user.id,
+        email: email.toLowerCase(),
+        contact_name: profile?.contact_name || 'Admin User',
+        company_name: profile?.company_name || 'ESPRESSGO HQ',
+        business_type: profile?.business_type || 'hq',
+        delivery_address: profile?.delivery_address || 'Singapore HQ',
+        role: 'admin'
+      };
+
+      const { data: upsertedProfile, error: upsertError } = await client
+        .from('profiles')
+        .upsert(profilePayload, { onConflict: 'id' })
+        .select()
+        .maybeSingle();
+
+      if (!upsertError && upsertedProfile) {
+        finalProfile = upsertedProfile;
+      } else {
+        console.warn('Admin profile upsert failed, using virtual profile:', upsertError);
+        finalProfile = { ...profile, ...profilePayload, role: 'admin' };
+      }
+    }
+
+    const normalizedProfile = this.normalizeProfile(finalProfile, data.user);
 
     this.setUser(normalizedProfile);
 
@@ -708,10 +734,13 @@ function buildNav(activePage) {
     ` : ''}
   `;
 
-  const rightDesktop = loggedIn ? `
-    <a href="${adminPrefix}admin-login.html" class="nav-admin-btn" style="font-size:12px;">🛡 Admin</a>
+  const showAdminButton = currentUser && currentUser.role === 'admin';
 
-    <div class="nav-divider"></div>
+  const rightDesktop = loggedIn ? `
+    ${showAdminButton ? `
+      <a href="${adminPrefix}admin-dashboard.html" class="nav-admin-btn" style="font-size:12px;">🛡 Admin</a>
+      <div class="nav-divider"></div>
+    ` : ''}
 
     <div style="position:relative;">
       <button
@@ -785,9 +814,10 @@ function buildNav(activePage) {
   `;
 
   const mobileAuth = loggedIn ? `
-    <a href="${adminPrefix}admin-login.html" class="nav-mobile-link">🛡 Admin Portal</a>
-
-    <div class="nav-mobile-divider"></div>
+    ${showAdminButton ? `
+      <a href="${adminPrefix}admin-dashboard.html" class="nav-mobile-link">🛡 Admin Portal</a>
+      <div class="nav-mobile-divider"></div>
+    ` : ''}
 
     <button
       onclick="handleLogout()"

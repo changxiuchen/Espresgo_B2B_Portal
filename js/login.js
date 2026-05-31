@@ -14,7 +14,11 @@
     const profile = await Auth.refreshUser();
 
     if (profile) {
-      window.location.href = 'catalog.html';
+      if (profile.role === 'admin') {
+        window.location.href = 'admin/admin-dashboard.html';
+      } else {
+        window.location.href = 'catalog.html';
+      }
     }
   } catch (error) {
     console.error('Session check failed:', error);
@@ -442,9 +446,14 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
   }
 
   if (result.ok) {
-    const redirectTo = localStorage.getItem('redirectAfterLogin') || 'catalog.html';
-
+    let redirectTo = localStorage.getItem('redirectAfterLogin');
     localStorage.removeItem('redirectAfterLogin');
+
+    if (result.user && result.user.role === 'admin') {
+      redirectTo = 'admin/admin-dashboard.html';
+    } else if (!redirectTo) {
+      redirectTo = 'catalog.html';
+    }
 
     window.location.href = redirectTo;
     return;

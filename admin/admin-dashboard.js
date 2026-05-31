@@ -58,7 +58,7 @@ async function requireAdmin() {
 
   if (!profile || profile.role !== 'admin') {
     localStorage.removeItem('espressgo_admin');
-    window.location.href = 'admin-login.html';
+    window.location.href = '../login.html';
     return null;
   }
 
@@ -85,7 +85,7 @@ async function adminLogout() {
 
   await Auth.logout();
 
-  window.location.href = 'admin-login.html';
+  window.location.href = '../login.html';
 }
 
 window.adminLogout = adminLogout;
