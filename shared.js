@@ -1,385 +1,314 @@
 /* shared.js — navigation, auth, toast, shared state */
 /* ============================================================
+   ESPRESSGO B2B Portal — Shared JavaScript
+
    This file manages:
-   - Navigation rendering + active state
-   - Simple localStorage-based auth (demo)
-   - Shared product data
-   - Shared order data
+   - Supabase authentication helpers
+   - Shared fallback product data
+   - Supabase order helpers
+   - Navigation rendering
+   - Footer rendering
    - Toast notifications
+   - Product pouch SVG helpers
+   - Floating social buttons
+   - FAQ / AI chat widget
+
+   IMPORTANT:
+   HTML pages must load scripts in this order:
+   1. Supabase JS CDN
+   2. supabase-config.js
+   3. shared.js
    ============================================================ */
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-// ── Supabase Configuration ───────────────────────────────────
-// Replace placeholders with your live credentials in production
-const SUPABASE_URL = "https://aynwtgkmrymnrhzashtf.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_stk65gIeVJPmtvdRM4tKDQ_FRIyop5P";
 
-const isSupabaseEnabled = SUPABASE_URL && SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY';
-let supabase = null;
+/* ============================================================
+   Supabase client resolver
+   ============================================================ */
 
-if (isSupabaseEnabled) {
-  console.log("⚡ Supabase integration active.");
-} else {
-  console.log("ℹ️ Running in Mock LocalStorage Mode. Set SUPABASE_URL/KEY in shared.js to activate Supabase.");
-}
+function getSupabaseClient() {
+  if (window.sb) return window.sb;
+  if (window.supabaseClient) return window.supabaseClient;
 
-// Dynamic script loader for browser CDN
-function loadSupabaseSDK() {
-  return new Promise((resolve) => {
-    if (!isSupabaseEnabled) { resolve(null); return; }
-    if (window.supabase) { resolve(window.supabase); return; }
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-    script.onload = () => resolve(window.supabase);
-    script.onerror = () => {
-      console.warn("⚠️ Failed to load Supabase SDK from CDN. Falling back to Mock mode.");
-      resolve(null);
-    };
-    document.head.appendChild(script);
-  });
-}
-
-// On-demand Supabase client lazy-initialization
-async function getSupabaseClient() {
-  if (supabase) return supabase;
-  const sdk = await loadSupabaseSDK();
-  if (sdk) {
-    try {
-      supabase = sdk.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      return supabase;
-    } catch (err) {
-      console.error("⚠️ Supabase initialization failed:", err);
-      return null;
-    }
+  try {
+    if (typeof sb !== 'undefined') return sb;
+  } catch (error) {
+    // Ignore missing global lexical variable.
   }
+
   return null;
 }
-=======
-=======
->>>>>>> parent of d1e893d (update)
-=======
->>>>>>> parent of d1e893d (update)
-=======
->>>>>>> parent of d1e893d (update)
-// ── Supabase Initialization & Setup ─────────────────────────
-// Drop your live Supabase credentials here to activate real authentication and PostgreSQL storage!
-const SUPABASE_URL = "";
-const SUPABASE_ANON_KEY = "";
 
-let supabase = null;
-const isSupabaseEnabled = SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== "YOUR_SUPABASE_URL" && SUPABASE_ANON_KEY !== "YOUR_SUPABASE_ANON_KEY";
 
-if (isSupabaseEnabled) {
-  try {
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    console.log("🔌 Supabase Integration Enabled.");
-  } catch (err) {
-    console.error("❌ Failed to initialize Supabase client:", err);
-  }
-} else {
-  console.log("ℹ️ Running in Mock LocalStorage Mode. Set SUPABASE_URL & SUPABASE_ANON_KEY in shared.js to activate.");
+/* ============================================================
+   Small safety helper
+   ============================================================ */
+
+function escapeHTML(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
 }
 
-// Helper to keep localStorage user cache in sync with Supabase auth state automatically
-if (isSupabaseEnabled && supabase) {
-  supabase.auth.onAuthStateChange(async (event, session) => {
-    if (event === 'SIGNED_IN' && session) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
-      if (profile) {
-        localStorage.setItem('espressgo_user', JSON.stringify({
-          email: profile.email,
-          companyName: profile.company_name,
-          contactName: profile.contact_name,
-          businessType: profile.business_type,
-          deliveryAddress: profile.delivery_address || ''
-        }));
-        if (profile.is_admin) {
-          localStorage.setItem('espressgo_admin', 'true');
-        }
-      }
-    } else if (event === 'SIGNED_OUT') {
-      localStorage.removeItem('espressgo_user');
-      localStorage.removeItem('espressgo_admin');
-    }
-  });
-}
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> parent of d1e893d (update)
-=======
->>>>>>> parent of d1e893d (update)
-=======
->>>>>>> parent of d1e893d (update)
-=======
->>>>>>> parent of d1e893d (update)
 
-=======
->>>>>>> parent of 1f95353 (ai agent update)
-// ── Auth helpers ─────────────────────────────────────────────
+/* ============================================================
+   Auth helpers using Supabase
+   ============================================================ */
+
 const Auth = {
+  _profileKey: 'espressgo_profile',
+
   getUser() {
-    try { return JSON.parse(localStorage.getItem('espressgo_user') || 'null'); } catch { return null; }
+    try {
+      return JSON.parse(localStorage.getItem(this._profileKey) || 'null');
+    } catch (error) {
+      return null;
+    }
   },
-  setUser(u) { localStorage.setItem('espressgo_user', JSON.stringify(u)); },
-  clearUser() { localStorage.removeItem('espressgo_user'); },
-  isLoggedIn() { return !!this.getUser(); },
-<<<<<<< HEAD
-  
+
+  setUser(profile) {
+    localStorage.setItem(this._profileKey, JSON.stringify(profile));
+  },
+
+  clearUser() {
+    localStorage.removeItem(this._profileKey);
+    localStorage.removeItem('espressgo_user');
+  },
+
+  isLoggedIn() {
+    return !!this.getUser();
+  },
+
+  normalizeProfile(profile, authUser = null) {
+    return {
+      id: profile?.id || authUser?.id || null,
+      email: profile?.email || authUser?.email || '',
+      contactName: profile?.contact_name || authUser?.user_metadata?.contact_name || '',
+      companyName: profile?.company_name || authUser?.user_metadata?.company_name || '',
+      businessType: profile?.business_type || authUser?.user_metadata?.business_type || '',
+      deliveryAddress: profile?.delivery_address || authUser?.user_metadata?.delivery_address || '',
+      role: profile?.role || authUser?.user_metadata?.role || 'buyer'
+    };
+  },
+
+  async refreshUser() {
+    const client = getSupabaseClient();
+
+    if (!client) {
+      console.error('Supabase client is missing. Check supabase-config.js.');
+      this.clearUser();
+      return null;
+    }
+
+    const { data: sessionData, error: sessionError } = await client.auth.getSession();
+
+    if (sessionError || !sessionData?.session?.user) {
+      this.clearUser();
+      return null;
+    }
+
+    const authUser = sessionData.session.user;
+
+    const { data: profile, error: profileError } = await client
+      .from('profiles')
+      .select('*')
+      .eq('id', authUser.id)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error('Failed to load profile:', profileError);
+    }
+
+    const normalizedProfile = this.normalizeProfile(profile, authUser);
+
+    this.setUser(normalizedProfile);
+    return normalizedProfile;
+  },
+
   async login(email, password) {
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-    const client = await getSupabaseClient();
+    const client = getSupabaseClient();
+
     if (!client) {
-      // Mock mode fallback
-      if (email === 'admin@espressgo.sg' && password === 'admin123') {
-        localStorage.setItem('espressgo_admin', 'true');
-        this.setUser({ email, companyName: 'ESPRESSGO Admin', contactName: 'System Admin', businessType: 'Admin', deliveryAddress: 'Admin HQ, Singapore' });
-        return { ok: true, isAdmin: true };
-      }
-      const saved = this.getUser();
-      if (email === 'test@gmail.com' && password === '123') {
-        this.setUser({ email, companyName: 'Demo Company', contactName: 'Demo User', businessType: 'Office Manager', deliveryAddress: '1 Marina Boulevard, Singapore 018989' });
-        return { ok: true };
-      }
-      if (saved && saved.email === email && saved._pw === password) return { ok: true };
-      return { ok: false, error: 'Invalid email or password.' };
-=======
-=======
->>>>>>> parent of d1e893d (update)
-=======
->>>>>>> parent of d1e893d (update)
-=======
->>>>>>> parent of d1e893d (update)
-    if (isSupabaseEnabled && supabase) {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) return { ok: false, error: error.message };
-
-      const { data: profile, error: profileErr } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', data.user.id)
-        .single();
-
-      if (profileErr || !profile) {
-        return { ok: false, error: "Failed to load user profile details." };
-      }
-
-      const clientProfile = {
-        email: profile.email,
-        companyName: profile.company_name,
-        contactName: profile.contact_name,
-        businessType: profile.business_type,
-        deliveryAddress: profile.delivery_address || ''
+      return {
+        ok: false,
+        error: 'Supabase is not connected. Check supabase-config.js.'
       };
-
-      this.setUser(clientProfile);
-      if (profile.is_admin) {
-        localStorage.setItem('espressgo_admin', 'true');
-        return { ok: true, isAdmin: true };
-      }
-      return { ok: true };
     }
 
-    // Mock mode fallback
-=======
-  login(email, password) {
->>>>>>> parent of 1f95353 (ai agent update)
-    if (email === 'admin@espressgo.sg' && password === 'admin123') {
-      localStorage.setItem('espressgo_admin', 'true');
-      this.setUser({ email, companyName: 'ESPRESSGO Admin', contactName: 'System Admin', businessType: 'Admin', deliveryAddress: 'Admin HQ, Singapore' });
-      return { ok: true, isAdmin: true };
->>>>>>> parent of d1e893d (update)
-    }
-<<<<<<< HEAD
+    const { data, error } = await client.auth.signInWithPassword({
+      email,
+      password
+    });
 
-    // Live Supabase Mode
-    try {
-      const { data, error } = await client.auth.signInWithPassword({ email, password });
-      if (error) return { ok: false, error: error.message };
-
-      // Load matching profile data from public.profiles table
-      const { data: profile, error: pError } = await client
-        .from('profiles')
-        .select('*')
-        .eq('id', data.user.id)
-        .single();
-
-      if (pError) {
-        console.error("⚠️ Failed to load user profile from database:", pError.message);
-        // Fallback local user structure
-        const localUser = { email, contactName: email.split('@')[0], companyName: 'N/A', businessType: 'N/A', deliveryAddress: '' };
-        this.setUser(localUser);
-        return { ok: true };
-      }
-
-      const isAdmin = profile.role === 'admin';
-      if (isAdmin) localStorage.setItem('espressgo_admin', 'true');
-      
-      const localUser = {
-        email: profile.email || email,
-        companyName: profile.company_name,
-        contactName: profile.contact_name,
-        businessType: profile.business_type,
-        deliveryAddress: profile.delivery_address || ''
+    if (error) {
+      return {
+        ok: false,
+        error: error.message || 'Invalid email or password.'
       };
-      this.setUser(localUser);
-      return { ok: true, isAdmin };
-    } catch (err) {
-      return { ok: false, error: err.message };
     }
+
+    const { data: profile, error: profileError } = await client
+      .from('profiles')
+      .select('*')
+      .eq('id', data.user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      return {
+        ok: false,
+        error: profileError.message || 'Login succeeded, but your profile could not be loaded.'
+      };
+    }
+
+    const normalizedProfile = this.normalizeProfile(profile, data.user);
+
+    this.setUser(normalizedProfile);
+
+    return {
+      ok: true,
+      user: normalizedProfile
+    };
   },
 
   async register(email, password, companyName, businessType, contactName) {
-    const client = await getSupabaseClient();
+    const client = getSupabaseClient();
+
     if (!client) {
-      // Mock mode fallback
-      this.setUser({ email, companyName, contactName, businessType, deliveryAddress: '', _pw: password });
-=======
-    // Demo: any account registered, or fallback demo credentials
-    const saved = this.getUser();
-    if (email === 'test@gmail.com' && password === '123') {
-      this.setUser({ email, companyName: 'Demo Company', contactName: 'Demo User', businessType: 'Office Manager', deliveryAddress: '1 Marina Boulevard, Singapore 018989' });
->>>>>>> parent of 1f95353 (ai agent update)
-      return { ok: true };
+      return {
+        ok: false,
+        error: 'Supabase is not connected. Check supabase-config.js.'
+      };
     }
-<<<<<<< HEAD
 
-    // Live Supabase Mode
-    try {
-      const { data, error } = await client.auth.signUp({
-=======
-    if (saved && saved.email === email && saved._pw === password) return { ok: true };
-    return { ok: false, error: 'Invalid email or password.' };
-  },
-<<<<<<< HEAD
-  async register(email, password, companyName, businessType, contactName) {
-    if (isSupabaseEnabled && supabase) {
-      const { data, error } = await supabase.auth.signUp({
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> parent of d1e893d (update)
-=======
->>>>>>> parent of d1e893d (update)
-=======
->>>>>>> parent of d1e893d (update)
-=======
->>>>>>> parent of d1e893d (update)
-        email,
-        password,
-        options: {
-          data: {
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-            contactName,
-            companyName,
-            businessType,
-            deliveryAddress: ''
-          }
+    const { data, error } = await client.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          contact_name: contactName,
+          company_name: companyName,
+          business_type: businessType,
+          delivery_address: '',
+          role: 'buyer'
         }
-      });
+      }
+    });
 
-      if (error) return { ok: false, error: error.message };
-
-      // Wait a moment for PostgreSQL triggers to insert the public.profiles record
-      await new Promise(r => setTimeout(r, 600));
-
-      const localUser = { email, companyName, contactName, businessType, deliveryAddress: '' };
-      this.setUser(localUser);
-      return { ok: true };
-    } catch (err) {
-      return { ok: false, error: err.message };
-    }
-=======
-=======
->>>>>>> parent of d1e893d (update)
-=======
->>>>>>> parent of d1e893d (update)
-=======
->>>>>>> parent of d1e893d (update)
-            contact_name: contactName,
-            company_name: companyName,
-            business_type: businessType
-          }
-        }
-      });
-      if (error) return { ok: false, error: error.message };
-      return { ok: true, message: "Please check your email for confirmation." };
+    if (error) {
+      return {
+        ok: false,
+        error: error.message || 'Could not create account.'
+      };
     }
 
-    // Mock mode fallback
-=======
-  register(email, password, companyName, businessType, contactName) {
->>>>>>> parent of 1f95353 (ai agent update)
-    this.setUser({ email, companyName, contactName, businessType, deliveryAddress: '', _pw: password });
-    return { ok: true };
->>>>>>> parent of d1e893d (update)
+    if (!data.user) {
+      return {
+        ok: false,
+        error: 'Please check your email to confirm your account, then sign in.'
+      };
+    }
+
+    const profilePayload = {
+      id: data.user.id,
+      email,
+      contact_name: contactName,
+      company_name: companyName,
+      business_type: businessType,
+      delivery_address: '',
+      role: 'buyer'
+    };
+
+    const { error: profileError } = await client
+      .from('profiles')
+      .upsert(profilePayload, { onConflict: 'id' });
+
+    if (profileError) {
+      return {
+        ok: false,
+        error: profileError.message || 'Account created, but profile creation failed.'
+      };
+    }
+
+    const normalizedProfile = this.normalizeProfile(profilePayload, data.user);
+
+    this.setUser(normalizedProfile);
+
+    return {
+      ok: true,
+      user: normalizedProfile
+    };
   },
-<<<<<<< HEAD
+
+  async updateProfile(profile) {
+    const client = getSupabaseClient();
+    const current = this.getUser();
+
+    if (!client) {
+      return {
+        ok: false,
+        error: 'Supabase is not connected. Check supabase-config.js.'
+      };
+    }
+
+    if (!current) {
+      return {
+        ok: false,
+        error: 'Not logged in.'
+      };
+    }
+
+    const { error } = await client
+      .from('profiles')
+      .update({
+        contact_name: profile.contactName,
+        company_name: profile.companyName,
+        business_type: profile.businessType,
+        delivery_address: profile.deliveryAddress,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', current.id);
+
+    if (error) {
+      return {
+        ok: false,
+        error: error.message
+      };
+    }
+
+    const updatedProfile = {
+      ...current,
+      ...profile
+    };
+
+    this.setUser(updatedProfile);
+
+    return {
+      ok: true,
+      user: updatedProfile
+    };
+  },
 
   async logout() {
-    if (isSupabaseEnabled && supabase) {
-      try {
-        await supabase.auth.signOut();
-      } catch (err) {
-        console.error("Error signing out from Supabase:", err);
-      }
-    }
-    this.clearUser();
-    const client = await getSupabaseClient();
+    const client = getSupabaseClient();
+
     if (client) {
       await client.auth.signOut();
     }
-  },
 
-  async updateProfileOnSupabase(fields) {
-    const client = await getSupabaseClient();
-    if (!client) return true;
-
-    try {
-      const { data: { user } } = await client.auth.getUser();
-      if (!user) return false;
-
-      const { error } = await client
-        .from('profiles')
-        .update({
-          contact_name: fields.contactName,
-          company_name: fields.companyName,
-          business_type: fields.businessType,
-          delivery_address: fields.deliveryAddress,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', user.id);
-
-      if (error) {
-        console.error("⚠️ Failed to update profile on Supabase:", error.message);
-        return false;
-      }
-      return true;
-    } catch (err) {
-      console.error("⚠️ Exception updating profile on Supabase:", err);
-      return false;
-    }
+    this.clearUser();
+    localStorage.removeItem('espressgo_admin');
   }
-=======
-  logout() { this.clearUser(); },
->>>>>>> parent of 1f95353 (ai agent update)
 };
 
-// ── Product data ─────────────────────────────────────────────
+
+/* ============================================================
+   Fallback product data
+   Supabase products should be the main source on catalog pages.
+   This remains as backup for local display and AI cart actions.
+   ============================================================ */
+
 const Products = [
   {
     id: 'espressgo-original',
@@ -396,8 +325,8 @@ const Products = [
     tiers: [
       { min: 1, max: 9, price: 120 },
       { min: 10, max: 29, price: 108 },
-      { min: 30, max: null, price: 96 },
-    ],
+      { min: 30, max: null, price: 96 }
+    ]
   },
   {
     id: 'espressgo-oatmilk',
@@ -414,8 +343,8 @@ const Products = [
     tiers: [
       { min: 1, max: 9, price: 130 },
       { min: 10, max: 29, price: 117 },
-      { min: 30, max: null, price: 104 },
-    ],
+      { min: 30, max: null, price: 104 }
+    ]
   },
   {
     id: 'espressgo-matcha',
@@ -433,8 +362,8 @@ const Products = [
     tiers: [
       { min: 1, max: 9, price: 125 },
       { min: 10, max: 29, price: 112 },
-      { min: 30, max: null, price: 100 },
-    ],
+      { min: 30, max: null, price: 100 }
+    ]
   },
   {
     id: 'espressgo-decaf',
@@ -452,525 +381,640 @@ const Products = [
     tiers: [
       { min: 1, max: 9, price: 115 },
       { min: 10, max: 29, price: 103 },
-      { min: 30, max: null, price: 92 },
-    ],
-  },
+      { min: 30, max: null, price: 92 }
+    ]
+  }
 ];
 
 function getActiveTier(tiers, qty) {
-  if (qty <= 0) return tiers[0];
-  let active = tiers[0];
-  for (const t of tiers) { if (qty >= t.min) active = t; }
-  return active;
+  const cleanTiers = Array.isArray(tiers) && tiers.length
+    ? tiers
+    : [{ min: 1, max: null, price: 0 }];
+
+  const cleanQty = Number(qty || 0);
+
+  if (cleanQty <= 0) return cleanTiers[0];
+
+  let activeTier = cleanTiers[0];
+
+  for (const tier of cleanTiers) {
+    const minOk = cleanQty >= Number(tier.min || 0);
+    const maxOk = tier.max === null || tier.max === undefined || cleanQty <= Number(tier.max);
+
+    if (minOk && maxOk) {
+      activeTier = tier;
+    }
+  }
+
+  return activeTier;
 }
 
-// ── Order data ───────────────────────────────────────────────
+
+/* ============================================================
+   Order data using Supabase
+   Database schema used:
+   - orders.profile_id
+   - orders.created_at
+   - order_items.order_id
+   ============================================================ */
+
 const Orders = {
-  _key: 'espressgo_orders',
-<<<<<<< HEAD
-  
   async getAll() {
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-    const client = await getSupabaseClient();
-    if (!client) {
-      return this.getLocalOrders();
-    }
+    const client = getSupabaseClient();
 
-    try {
-      const { data, error } = await client
-        .from('orders')
-        .select(`
-          id,
-          company,
-          contact_name,
-          business_type,
-          delivery_address,
-          total_cartons,
-          total_amount,
-          status,
-          notes,
-          created_at,
-          order_items (
-            sku,
-            name,
-            cartons,
-            price_per_carton
-          )
-        `)
-        .order('created_at', { ascending: false });
+    if (!client) return [];
 
-      if (error) {
-        console.error("⚠️ Failed to fetch orders from Supabase:", error.message);
-=======
-=======
->>>>>>> parent of d1e893d (update)
-=======
->>>>>>> parent of d1e893d (update)
-=======
->>>>>>> parent of d1e893d (update)
-    if (isSupabaseEnabled && supabase) {
-      const { data, error } = await supabase
+    let query = client
+      .from('orders')
+      .select('*, order_items(*)')
+      .order('created_at', { ascending: false });
+
+    let { data, error } = await query;
+
+    if (error) {
+      console.warn('Nested order_items fetch failed. Retrying orders only:', error.message);
+
+      const fallback = await client
         .from('orders')
         .select('*')
-        .order('date_ordered', { ascending: false });
+        .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error("Failed to query orders from database:", error);
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> parent of d1e893d (update)
-=======
->>>>>>> parent of d1e893d (update)
-=======
->>>>>>> parent of d1e893d (update)
-=======
->>>>>>> parent of d1e893d (update)
-        return this.getLocalOrders();
-      }
-
-      const mapped = data.map(o => ({
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-        id: String(o.id),
-        company: o.company,
-        contactName: o.contact_name,
-        businessType: o.business_type,
-        deliveryAddress: o.delivery_address,
-        totalCartons: o.total_cartons,
-        totalAmount: Number(o.total_amount),
-        status: o.status,
-        notes: o.notes,
-        dateOrdered: o.created_at,
-        items: (o.order_items || []).map(it => ({
-          sku: it.sku,
-          name: it.name,
-          cartons: it.cartons,
-          pricePerCarton: Number(it.price_per_carton)
-        }))
-      }));
-
-      this.save(mapped); // Cache locally
-      return mapped;
-    } catch (err) {
-      console.error("⚠️ Exception fetching orders from Supabase:", err);
-      return this.getLocalOrders();
+      data = fallback.data;
+      error = fallback.error;
     }
-=======
-=======
->>>>>>> parent of d1e893d (update)
-=======
->>>>>>> parent of d1e893d (update)
-=======
->>>>>>> parent of d1e893d (update)
-        id: o.id,
-        company: o.company_name,
-        contactName: o.contact_name,
-        totalAmount: parseFloat(o.total_amount),
-        totalCartons: o.total_cartons,
-        items: o.items,
-        status: o.status,
-        dateOrdered: o.date_ordered,
-        notes: o.notes || ''
-      }));
 
-      this.save(mapped);
-      return mapped;
+    if (error) {
+      console.error('Failed to load orders:', error);
+      return [];
     }
-    return this.getLocalOrders();
->>>>>>> parent of d1e893d (update)
+
+    return (data || []).map(row => this._fromDb(row));
   },
-  
-  getLocalOrders() {
-=======
-  getAll() {
->>>>>>> parent of 1f95353 (ai agent update)
-    try { return JSON.parse(localStorage.getItem(this._key) || '[]'); } catch { return []; }
-  },
-  save(orders) { localStorage.setItem(this._key, JSON.stringify(orders)); },
-<<<<<<< HEAD
-  
+
   async add(order) {
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-    const client = await getSupabaseClient();
+    const client = getSupabaseClient();
+    const user = Auth.getUser();
+
     if (!client) {
-      const all = this.getLocalOrders();
-      const newOrder = {
-        ...order,
-        id: String(Date.now()).slice(-6),
-        dateOrdered: new Date().toISOString(),
-        status: 'pending'
-      };
-      all.unshift(newOrder);
-      this.save(all);
-      return newOrder;
+      throw new Error('Supabase is not connected. Check supabase-config.js.');
     }
 
-    try {
-      const { data: { user } } = await client.auth.getUser();
-      
-      const { data: newOrderData, error: orderError } = await client
-        .from('orders')
-        .insert({
-          profile_id: user ? user.id : null,
-          company: order.company,
-          contact_name: order.contactName,
-          business_type: order.businessType,
-          delivery_address: order.deliveryAddress,
-          total_cartons: order.totalCartons,
-          total_amount: order.totalAmount,
-          status: 'pending',
-          notes: order.notes || null
-        })
-        .select()
-        .single();
+    if (!user) {
+      throw new Error('You must be logged in to place an order.');
+    }
 
-      if (orderError) throw new Error(orderError.message);
+    const payload = {
+      profile_id: user.id,
+      company: order.company || user.companyName || 'Unknown Company',
+      contact_name: order.contactName || user.contactName || user.email || 'Unknown Contact',
+      business_type: order.businessType || user.businessType || null,
+      delivery_address: order.deliveryAddress || user.deliveryAddress || 'Singapore',
+      total_cartons: Number(order.totalCartons || 0),
+      total_amount: Number(order.totalAmount || 0),
+      status: order.status || 'pending',
+      notes: order.notes || null
+    };
 
-      const orderId = newOrderData.id;
+    const { data: savedOrder, error: orderError } = await client
+      .from('orders')
+      .insert(payload)
+      .select()
+      .single();
 
-      const itemsToInsert = order.items.map(it => ({
-        order_id: orderId,
-        product_id: it.sku.includes('OG') ? 'espressgo-original' : (it.sku.includes('OAT') ? 'espressgo-oatmilk' : null),
-        sku: it.sku,
-        name: it.name,
-        cartons: it.cartons,
-        price_per_carton: it.pricePerCarton
+    if (orderError) {
+      console.error('Failed to add order:', orderError);
+      throw orderError;
+    }
+
+    const items = Array.isArray(order.items) ? order.items : [];
+
+    if (items.length) {
+      const itemPayload = items.map(item => ({
+        order_id: savedOrder.id,
+        product_id: item.productId || item.product_id || item.id || null,
+        sku: item.sku || '',
+        name: item.name || '',
+        cartons: Number(item.cartons || item.qty || 0),
+        price_per_carton: Number(item.pricePerCarton || item.price_per_carton || item.price || 0)
       }));
 
       const { error: itemsError } = await client
         .from('order_items')
-        .insert(itemsToInsert);
+        .insert(itemPayload);
 
       if (itemsError) {
-        console.error("⚠️ Failed to insert order items, but parent order was created:", itemsError.message);
+        console.error('Order saved, but order items failed:', itemsError);
+        throw itemsError;
       }
 
-      const formattedOrder = {
-        ...order,
-        id: String(orderId),
-        dateOrdered: newOrderData.created_at,
-        status: 'pending'
-      };
-
-      // Also append to local storage cache
-      const all = this.getLocalOrders();
-      all.unshift(formattedOrder);
-      this.save(all);
-
-      return formattedOrder;
-    } catch (err) {
-      console.error("⚠️ Failed to save order to Supabase:", err);
-      const all = this.getLocalOrders();
-      const newOrder = {
-        ...order,
-        id: String(Date.now()).slice(-6),
-        dateOrdered: new Date().toISOString(),
-        status: 'pending',
-        notes: (order.notes || '') + ' (Offline Fallback)'
-      };
-      all.unshift(newOrder);
-      this.save(all);
-      return newOrder;
-    }
-=======
-=======
->>>>>>> parent of d1e893d (update)
-=======
->>>>>>> parent of d1e893d (update)
-=======
->>>>>>> parent of d1e893d (update)
-    if (isSupabaseEnabled && supabase) {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const user = Auth.getUser();
-
-        const newOrder = {
-          user_id: session ? session.user.id : null,
-          company_name: order.company || user.companyName,
-          contact_name: order.contactName || user.contactName,
-          total_amount: order.totalAmount,
-          total_cartons: order.totalCartons,
-          items: order.items,
-          status: 'pending',
-          notes: order.notes || ''
-        };
-
-        const { data, error } = await supabase
-          .from('orders')
-          .insert(newOrder)
-          .select()
-          .single();
-
-        if (error) throw error;
-
-        const formattedOrder = {
-          id: data.id,
-          company: data.company_name,
-          contactName: data.contact_name,
-          totalAmount: parseFloat(data.total_amount),
-          totalCartons: data.total_cartons,
-          items: data.items,
-          status: data.status,
-          dateOrdered: data.date_ordered,
-          notes: data.notes || ''
-        };
-
-        const cached = this.getLocalOrders();
-        cached.unshift(formattedOrder);
-        this.save(cached);
-
-        return formattedOrder;
-      } catch (err) {
-        console.error("Error creating database order:", err);
-        throw err;
-      }
+      savedOrder.order_items = itemPayload;
     }
 
-    const all = this.getLocalOrders();
-=======
-  add(order) {
-    const all = this.getAll();
->>>>>>> parent of 1f95353 (ai agent update)
-    const newOrder = {
-      ...order,
-      id: String(Date.now()).slice(-6),
-      dateOrdered: new Date().toISOString(),
-    };
-    all.unshift(newOrder);
-    this.save(all);
-    return newOrder;
->>>>>>> parent of d1e893d (update)
+    return this._fromDb(savedOrder);
   },
-  forCompany(name) { return this.getAll().filter(o => o.company === name); },
+
+  async updateStatus(id, status) {
+    const client = getSupabaseClient();
+
+    if (!client) {
+      throw new Error('Supabase is not connected. Check supabase-config.js.');
+    }
+
+    const { error } = await client
+      .from('orders')
+      .update({ status })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Failed to update order:', error);
+      throw error;
+    }
+
+    return { ok: true };
+  },
+
+  async forCurrentUser() {
+    const client = getSupabaseClient();
+    const user = Auth.getUser();
+
+    if (!client || !user) return [];
+
+    let { data, error } = await client
+      .from('orders')
+      .select('*, order_items(*)')
+      .eq('profile_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('Nested order_items fetch failed. Retrying orders only:', error.message);
+
+      const fallback = await client
+        .from('orders')
+        .select('*')
+        .eq('profile_id', user.id)
+        .order('created_at', { ascending: false });
+
+      data = fallback.data;
+      error = fallback.error;
+    }
+
+    if (error) {
+      console.error('Failed to load user orders:', error);
+      return [];
+    }
+
+    return (data || []).map(row => this._fromDb(row));
+  },
+
+  async forCompany(companyName) {
+    const client = getSupabaseClient();
+
+    if (!client || !companyName) return [];
+
+    const { data, error } = await client
+      .from('orders')
+      .select('*, order_items(*)')
+      .eq('company', companyName)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Failed to load company orders:', error);
+      return [];
+    }
+
+    return (data || []).map(row => this._fromDb(row));
+  },
+
+  _fromDb(row) {
+    const nestedItems = Array.isArray(row.order_items) ? row.order_items : [];
+    const legacyItems = Array.isArray(row.items) ? row.items : [];
+
+    const items = nestedItems.length
+      ? nestedItems.map(item => ({
+          id: item.id,
+          productId: item.product_id,
+          sku: item.sku,
+          name: item.name,
+          cartons: Number(item.cartons || 0),
+          pricePerCarton: Number(item.price_per_carton || 0)
+        }))
+      : legacyItems;
+
+    return {
+      id: String(row.id),
+      profileId: row.profile_id || row.user_id || null,
+      company: row.company || '',
+      contactName: row.contact_name || '',
+      businessType: row.business_type || '',
+      items,
+      totalCartons: Number(row.total_cartons || 0),
+      totalAmount: Number(row.total_amount || 0),
+      status: row.status || 'pending',
+      deliveryAddress: row.delivery_address || '',
+      notes: row.notes || '',
+      dateOrdered: row.created_at || row.date_ordered || null,
+      createdAt: row.created_at || null
+    };
+  }
 };
 
-// ── Toast ────────────────────────────────────────────────────
+
+/* ============================================================
+   Toast notifications
+   ============================================================ */
+
 function showToast(title, body = '', type = 'success') {
   let container = document.getElementById('toast-container');
+
   if (!container) {
     container = document.createElement('div');
     container.id = 'toast-container';
     document.body.appendChild(container);
   }
-  const t = document.createElement('div');
-  t.className = `toast ${type} fade-in`;
-  t.innerHTML = `
+
+  const toast = document.createElement('div');
+  toast.className = `toast ${type} fade-in`;
+
+  toast.innerHTML = `
     <div class="toast-icon">${type === 'success' ? '✓' : '!'}</div>
     <div class="toast-body">
-      <div class="toast-title">${title}</div>
-      ${body ? `<div class="toast-sub">${body}</div>` : ''}
+      <div class="toast-title">${escapeHTML(title)}</div>
+      ${body ? `<div class="toast-sub">${escapeHTML(body)}</div>` : ''}
     </div>
     <button class="toast-close" aria-label="Close">×</button>
   `;
-  t.querySelector('.toast-close').onclick = () => t.remove();
-  container.appendChild(t);
-  setTimeout(() => t.remove(), 4500);
+
+  const closeBtn = toast.querySelector('.toast-close');
+
+  if (closeBtn) {
+    closeBtn.onclick = () => toast.remove();
+  }
+
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    if (toast && toast.parentNode) {
+      toast.remove();
+    }
+  }, 4500);
 }
 
-// ── Nav builder ──────────────────────────────────────────────
+
+/* ============================================================
+   Navigation builder
+   ============================================================ */
+
 function buildNav(activePage) {
-  const user = Auth.getUser();
-  const loggedIn = !!user;
-  const initials = user ? (user.contactName || user.companyName || 'U').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : '';
+  const currentUser = Auth.getUser();
+  const loggedIn = !!currentUser;
+  const inAdmin = window.location.pathname.includes('/admin/');
+  const rootPrefix = inAdmin ? '../' : '';
+  const adminPrefix = inAdmin ? '' : 'admin/';
+
+  const safeCompany = escapeHTML(currentUser?.companyName || '');
+  const safeEmail = escapeHTML(currentUser?.email || '');
+
+  const initials = currentUser
+    ? (currentUser.contactName || currentUser.companyName || 'U')
+        .split(' ')
+        .filter(Boolean)
+        .map(word => word[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase()
+    : '';
 
   const portalLinks = `
-  <li>
-    <a href="catalog.html"
-       class="nav-link ${activePage === 'catalog' ? 'active' : ''}">
-       Catalog
-    </a>
-  </li>
-
-  ${loggedIn ? `
     <li>
-      <a href="quick-order.html"
-         class="nav-link ${activePage === 'quick-order' ? 'active' : ''}">
-         Quick Order
+      <a href="${rootPrefix}catalog.html" class="nav-link ${activePage === 'catalog' ? 'active' : ''}">
+        Catalog
       </a>
     </li>
 
-    <li>
-      <a href="account.html"
-         class="nav-link ${activePage === 'account' ? 'active' : ''}">
-         Account
-      </a>
-    </li>
+    ${loggedIn ? `
+      <li>
+        <a href="${rootPrefix}quick-order.html" class="nav-link ${activePage === 'quick-order' ? 'active' : ''}">
+          Quick Order
+        </a>
+      </li>
 
-    <li><div class="nav-divider"></div></li>
-  ` : ''}
-`;
+      <li>
+        <a href="${rootPrefix}account.html" class="nav-link ${activePage === 'account' ? 'active' : ''}">
+          Account
+        </a>
+      </li>
+
+      <li><div class="nav-divider"></div></li>
+    ` : ''}
+  `;
 
   const rightDesktop = loggedIn ? `
-    <a href="admin/admin-login.html" class="nav-admin-btn">🛡 Admin</a>
+    <a href="${adminPrefix}admin-login.html" class="nav-admin-btn" style="font-size:12px;">🛡 Admin</a>
+
     <div class="nav-divider"></div>
+
     <div style="position:relative;">
-      <button id="user-menu-btn" style="display:flex;align-items:center;gap:.6rem;padding:.4rem .6rem;border-radius:10px;background:none;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.08)'" onmouseout="this.style.background='none'">
-        <div style="width:32px;height:32px;background:rgba(200,133,58,.25);border:1px solid rgba(200,133,58,.2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#D4A574;">${initials}</div>
-        <div style="text-align:left;display:none;" class="xl-show">
-          <div style="font-size:12px;color:#F5E6D3;">${user.companyName}</div>
-          <div style="font-size:10px;color:#6B5744;">${user.email}</div>
+      <button
+        id="user-menu-btn"
+        type="button"
+        style="display:flex;align-items:center;gap:.6rem;padding:.4rem .6rem;border-radius:10px;background:none;border:none;cursor:pointer;transition:background .15s;"
+        onmouseover="this.style.background='rgba(255,255,255,.08)'"
+        onmouseout="this.style.background='none'">
+
+        <div style="width:32px;height:32px;background:rgba(200,133,58,.25);border:1px solid rgba(200,133,58,.2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#D4A574;">
+          ${escapeHTML(initials)}
         </div>
+
+        <div style="text-align:left;display:none;" class="xl-show">
+          <div style="font-size:12px;color:#F5E6D3;">${safeCompany}</div>
+          <div style="font-size:10px;color:#6B5744;">${safeEmail}</div>
+        </div>
+
         <span style="color:#6B5744;font-size:11px;">▾</span>
       </button>
-      <div id="user-menu-dropdown" class="user-menu-dropdown">
-        <div class="user-menu-header">
-          <div class="user-menu-company">${user.companyName}</div>
-          <div class="user-menu-email">${user.email}</div>
+
+      <div
+        id="user-menu-dropdown"
+        style="display:none;position:absolute;right:0;top:calc(100% + 8px);width:210px;background:#fff;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.12);border:1px solid #EDE8E3;overflow:hidden;z-index:200;">
+
+        <div style="padding:.75rem 1rem;border-bottom:1px solid #F0EAE4;">
+          <div style="font-size:14px;color:#2C1810;">${safeCompany}</div>
+          <div style="font-size:11px;color:#8B7355;">${safeEmail}</div>
         </div>
-        <a href="account.html" class="user-menu-link">👤 My Account</a>
+
+        <a
+          href="${rootPrefix}account.html"
+          style="display:flex;align-items:center;gap:.6rem;padding:.65rem 1rem;font-size:14px;color:#2C1810;text-decoration:none;transition:background .15s;"
+          onmouseover="this.style.background='#FAF8F5'"
+          onmouseout="this.style.background='none'">
+          👤 My Account
+        </a>
+
         <div style="height:1px;background:#F0EAE4;"></div>
-        <button onclick="handleLogout()" class="user-menu-logout">🚪 Sign Out</button>
+
+        <button
+          onclick="handleLogout()"
+          type="button"
+          style="width:100%;display:flex;align-items:center;gap:.6rem;padding:.65rem 1rem;font-size:14px;color:#ef4444;background:none;border:none;cursor:pointer;transition:background .15s;"
+          onmouseover="this.style.background='#fff5f5'"
+          onmouseout="this.style.background='none'">
+          🚪 Sign Out
+        </button>
       </div>
     </div>
-  ` : `<a href="login.html" class="nav-btn">Sign In</a>`;
+  ` : `
+    <a href="${rootPrefix}login.html" class="nav-btn">Sign In</a>
+  `;
 
   const mobilePortalLinks = `
-  <a href="catalog.html"
-     class="nav-mobile-link ${activePage === 'catalog' ? 'active' : ''}">
-     📦 Catalog
-  </a>
-
-  ${loggedIn ? `
-    <a href="quick-order.html"
-       class="nav-mobile-link ${activePage === 'quick-order' ? 'active' : ''}">
-       ⚡ Quick Order
+    <a href="${rootPrefix}catalog.html" class="nav-mobile-link ${activePage === 'catalog' ? 'active' : ''}">
+      📦 Catalog
     </a>
 
-    <a href="account.html"
-       class="nav-mobile-link ${activePage === 'account' ? 'active' : ''}">
-       👤 Account
-    </a>
+    ${loggedIn ? `
+      <a href="${rootPrefix}quick-order.html" class="nav-mobile-link ${activePage === 'quick-order' ? 'active' : ''}">
+        ⚡ Quick Order
+      </a>
 
-    <div class="nav-mobile-divider"></div>
-  ` : ''}
-`;
+      <a href="${rootPrefix}account.html" class="nav-mobile-link ${activePage === 'account' ? 'active' : ''}">
+        👤 Account
+      </a>
+
+      <div class="nav-mobile-divider"></div>
+    ` : ''}
+  `;
 
   const mobileAuth = loggedIn ? `
-    <a href="admin/admin-login.html" class="nav-mobile-link">🛡 Admin Portal</a>
+    <a href="${adminPrefix}admin-login.html" class="nav-mobile-link">🛡 Admin Portal</a>
+
     <div class="nav-mobile-divider"></div>
-    <button onclick="handleLogout()" class="nav-mobile-link" style="background:rgba(239,68,68,.08);color:#ef4444;border:none;cursor:pointer;width:100%;text-align:left;">🚪 Sign Out</button>
-  ` : `<a href="login.html" class="nav-mobile-signin">Sign In</a>`;
+
+    <button
+      onclick="handleLogout()"
+      class="nav-mobile-link"
+      type="button"
+      style="background:rgba(239,68,68,.08);color:#ef4444;border:none;cursor:pointer;width:100%;text-align:left;">
+      🚪 Sign Out
+    </button>
+  ` : `
+    <a href="${rootPrefix}login.html" class="nav-mobile-signin">Sign In</a>
+  `;
 
   const html = `
     <nav class="nav" role="navigation" aria-label="Main navigation">
       <div class="nav-inner">
-        <a href="catalog.html" class="nav-logo" aria-label="ESPRESSGO home">
+
+        <a href="${rootPrefix}catalog.html" class="nav-logo" aria-label="ESPRESSGO home">
           <div class="nav-logo-icon">E</div>
           <div class="nav-logo-text">
             <div class="nav-logo-name">ESPRESSGO</div>
             <div class="nav-logo-sub">Wholesale Portal</div>
           </div>
         </a>
+
         <ul class="nav-links" role="list">
           ${portalLinks}
-          <li><a href="about.html"   class="nav-link ${activePage === 'about' ? 'active' : ''}">About</a></li>
-          <li><a href="contact.html" class="nav-link ${activePage === 'contact' ? 'active' : ''}">Contact</a></li>
+          <li>
+            <a href="${rootPrefix}about.html" class="nav-link ${activePage === 'about' ? 'active' : ''}">
+              About
+            </a>
+          </li>
+          <li>
+            <a href="${rootPrefix}contact.html" class="nav-link ${activePage === 'contact' ? 'active' : ''}">
+              Contact
+            </a>
+          </li>
         </ul>
-        <div class="nav-right-desktop" style="display:flex;align-items:center;gap:.5rem;">${rightDesktop}</div>
-        <button class="nav-hamburger" id="hamburger-btn" aria-label="Toggle menu" aria-expanded="false">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+
+        <div class="nav-right-desktop" style="display:flex;align-items:center;gap:.5rem;">
+          ${rightDesktop}
+        </div>
+
+        <button
+          class="nav-hamburger"
+          id="hamburger-btn"
+          type="button"
+          aria-label="Toggle menu"
+          aria-expanded="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <line x1="3" y1="12" x2="21" y2="12"/>
+            <line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
         </button>
       </div>
+
       <div class="nav-mobile" id="mobile-menu" role="menu" aria-hidden="true">
         ${mobilePortalLinks}
-        <a href="about.html"   class="nav-mobile-link ${activePage === 'about' ? 'active' : ''}">ℹ️ About</a>
-        <a href="contact.html" class="nav-mobile-link ${activePage === 'contact' ? 'active' : ''}">✉️ Contact</a>
+
+        <a href="${rootPrefix}about.html" class="nav-mobile-link ${activePage === 'about' ? 'active' : ''}">
+          ℹ️ About
+        </a>
+
+        <a href="${rootPrefix}contact.html" class="nav-mobile-link ${activePage === 'contact' ? 'active' : ''}">
+          ✉️ Contact
+        </a>
+
         <div class="nav-mobile-divider"></div>
+
         ${mobileAuth}
       </div>
     </nav>
   `;
-  document.getElementById('nav-placeholder').innerHTML = html;
 
-  // Hamburger toggle
-  const ham = document.getElementById('hamburger-btn');
-  const mob = document.getElementById('mobile-menu');
-  if (ham && mob) {
-    ham.addEventListener('click', () => {
-      const open = mob.classList.toggle('open');
-      ham.setAttribute('aria-expanded', open);
+  const navPlaceholder = document.getElementById('nav-placeholder');
+
+  if (navPlaceholder) {
+    navPlaceholder.innerHTML = html;
+  }
+
+  const hamburgerBtn = document.getElementById('hamburger-btn');
+  const mobileMenu = document.getElementById('mobile-menu');
+
+  if (hamburgerBtn && mobileMenu) {
+    hamburgerBtn.addEventListener('click', () => {
+      const open = mobileMenu.classList.toggle('open');
+      hamburgerBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      mobileMenu.setAttribute('aria-hidden', open ? 'false' : 'true');
     });
   }
 
-  // User menu dropdown
-  const btn = document.getElementById('user-menu-btn');
-  const drop = document.getElementById('user-menu-dropdown');
-  if (btn && drop) {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      drop.style.display = drop.style.display === 'block' ? 'none' : 'block';
+  const userMenuBtn = document.getElementById('user-menu-btn');
+  const userMenuDropdown = document.getElementById('user-menu-dropdown');
+
+  if (userMenuBtn && userMenuDropdown) {
+    userMenuBtn.addEventListener('click', event => {
+      event.stopPropagation();
+      userMenuDropdown.style.display = userMenuDropdown.style.display === 'block' ? 'none' : 'block';
     });
-    document.addEventListener('click', () => { drop.style.display = 'none'; });
+
+    document.addEventListener('click', () => {
+      userMenuDropdown.style.display = 'none';
+    });
   }
 }
 
+
+/* ============================================================
+   Footer builder
+   ============================================================ */
+
 function buildFooter() {
-  document.getElementById('footer-placeholder').innerHTML = `
+  const footerPlaceholder = document.getElementById('footer-placeholder');
+
+  if (!footerPlaceholder) return;
+
+  const inAdmin = window.location.pathname.includes('/admin/');
+  const rootPrefix = inAdmin ? '../' : '';
+
+  footerPlaceholder.innerHTML = `
     <footer class="footer" role="contentinfo">
       <div class="footer-inner">
+
         <div class="footer-logo">
           <div class="footer-logo-icon">E</div>
           <span class="footer-logo-text">ESPRESSGO</span>
         </div>
+
         <nav class="footer-links" aria-label="Footer links">
-          <a href="about.html">About</a>
-          <a href="contact.html">Contact</a>
+          <a href="${rootPrefix}about.html">About</a>
+          <a href="${rootPrefix}contact.html">Contact</a>
         </nav>
-        <p class="footer-copy">© 2026 ESPRESSGO. Gel-based espresso shots for business. Singapore.</p>
+
+        <p class="footer-copy">
+          © 2026 ESPRESSGO. Gel-based espresso shots for business. Singapore.
+        </p>
+
       </div>
     </footer>
   `;
 }
 
-function handleLogout() {
-  Auth.logout();
-  window.location.href = 'login.html';
+
+/* ============================================================
+   Logout and auth guard
+   ============================================================ */
+
+async function handleLogout() {
+  await Auth.logout();
+
+  const inAdmin = window.location.pathname.includes('/admin/');
+  window.location.href = inAdmin ? '../login.html' : 'login.html';
 }
 
-// ── Require auth (redirect if not logged in) ─────────────────
 function requireAuth() {
-  if (!Auth.isLoggedIn()) window.location.href = 'login.html';
+  if (!Auth.isLoggedIn()) {
+    const currentPage = window.location.pathname.split('/').pop() || 'catalog.html';
+    const inAdmin = window.location.pathname.includes('/admin/');
+
+    localStorage.setItem('redirectAfterLogin', currentPage);
+    window.location.href = inAdmin ? '../login.html' : 'login.html';
+  }
 }
 
-// ── Pouch SVG helper ─────────────────────────────────────────
+
+/* ============================================================
+   Pouch SVG helpers
+   ============================================================ */
+
 function pouchSVG(product, size = 130, dimmed = false) {
-  const { pouchColor, pouchAccent, labelColor, name } = product;
-  const h = size * 1.55;
+  const pouchColor = product.pouchColor || '#C8580A';
+  const pouchAccent = product.pouchAccent || '#8B3A00';
+  const labelColor = product.labelColor || '#F5E0C8';
+  const name = product.name || 'ESPRESSGO';
+  const height = size * 1.55;
   const label = name.replace('ESPRESSGO ', '');
-  return `<svg width="${size}" height="${h}" viewBox="0 0 100 155" xmlns="http://www.w3.org/2000/svg" style="opacity:${dimmed ? .4 : 1}">
-    <rect x="42" y="0" width="16" height="14" rx="4" fill="${pouchAccent}"/>
-    <path d="M36 14 Q30 20 28 30 L72 30 Q70 20 64 14 Z" fill="${pouchColor}"/>
-    <rect x="18" y="30" width="64" height="100" rx="12" fill="${pouchColor}"/>
-    <rect x="18" y="122" width="64" height="8" rx="6" fill="${pouchAccent}"/>
-    <rect x="22" y="42" width="56" height="72" rx="6" fill="${labelColor}" opacity="0.92"/>
-    <text x="50" y="62" text-anchor="middle" font-size="8.5" font-weight="700" font-family="sans-serif" fill="${pouchAccent}" letter-spacing="0.5">ESPRESSGO</text>
-    <line x1="26" y1="66" x2="74" y2="66" stroke="${pouchColor}" stroke-width="0.8" opacity="0.4"/>
-    <circle cx="50" cy="68" r="7" fill="${pouchColor}" opacity="0.8"/>
-    <path d="M44 75 Q48 84 50 88 Q52 84 56 75 Z" fill="${pouchColor}" opacity="0.7"/>
-    <text x="50" y="109" text-anchor="middle" font-size="4.2" font-family="sans-serif" fill="${pouchAccent}" opacity="0.7">${label}</text>
-  </svg>`;
+
+  return `
+    <svg width="${size}" height="${height}" viewBox="0 0 100 155" xmlns="http://www.w3.org/2000/svg" style="opacity:${dimmed ? 0.4 : 1}">
+      <rect x="42" y="0" width="16" height="14" rx="4" fill="${pouchAccent}"/>
+      <path d="M36 14 Q30 20 28 30 L72 30 Q70 20 64 14 Z" fill="${pouchColor}"/>
+      <rect x="18" y="30" width="64" height="100" rx="12" fill="${pouchColor}"/>
+      <rect x="18" y="122" width="64" height="8" rx="6" fill="${pouchAccent}"/>
+      <rect x="22" y="42" width="56" height="72" rx="6" fill="${labelColor}" opacity="0.92"/>
+      <text x="50" y="62" text-anchor="middle" font-size="8.5" font-weight="700" font-family="sans-serif" fill="${pouchAccent}" letter-spacing="0.5">ESPRESSGO</text>
+      <line x1="26" y1="66" x2="74" y2="66" stroke="${pouchColor}" stroke-width="0.8" opacity="0.4"/>
+      <circle cx="50" cy="68" r="7" fill="${pouchColor}" opacity="0.8"/>
+      <path d="M44 75 Q48 84 50 88 Q52 84 56 75 Z" fill="${pouchColor}" opacity="0.7"/>
+      <text x="50" y="109" text-anchor="middle" font-size="4.2" font-family="sans-serif" fill="${pouchAccent}" opacity="0.7">${escapeHTML(label)}</text>
+    </svg>
+  `;
 }
 
 function miniPouchSVG(color, accent, size = 32) {
-  const h = size * 1.5;
-  return `<svg width="${size}" height="${h}" viewBox="0 0 36 54" xmlns="http://www.w3.org/2000/svg">
-    <rect x="14" y="0" width="8" height="6" rx="2" fill="${accent}"/>
-    <path d="M10 6 Q8 9 8 12 L28 12 Q28 9 26 6 Z" fill="${color}"/>
-    <rect x="4" y="12" width="28" height="36" rx="6" fill="${color}"/>
-    <rect x="4" y="44" width="28" height="4" rx="3" fill="${accent}"/>
-    <rect x="7" y="16" width="22" height="26" rx="4" fill="${accent}" opacity="0.18"/>
-    <text x="18" y="28" text-anchor="middle" font-size="4" font-weight="700" font-family="sans-serif" fill="${accent}" letter-spacing="0.2">ESG</text>
-  </svg>`;
+  const height = size * 1.5;
+
+  return `
+    <svg width="${size}" height="${height}" viewBox="0 0 36 54" xmlns="http://www.w3.org/2000/svg">
+      <rect x="14" y="0" width="8" height="6" rx="2" fill="${accent}"/>
+      <path d="M10 6 Q8 9 8 12 L28 12 Q28 9 26 6 Z" fill="${color}"/>
+      <rect x="4" y="12" width="28" height="36" rx="6" fill="${color}"/>
+      <rect x="4" y="44" width="28" height="4" rx="3" fill="${accent}"/>
+      <rect x="7" y="16" width="22" height="26" rx="4" fill="${accent}" opacity="0.18"/>
+      <text x="18" y="28" text-anchor="middle" font-size="4" font-weight="700" font-family="sans-serif" fill="${accent}" letter-spacing="0.2">ESG</text>
+    </svg>
+  `;
 }
+
+
+/* ============================================================
+   Make helpers available globally
+   ============================================================ */
+
+window.getSupabaseClient = getSupabaseClient;
+window.Auth = Auth;
+window.Products = Products;
+window.Orders = Orders;
+window.getActiveTier = getActiveTier;
+window.showToast = showToast;
+window.buildNav = buildNav;
+window.buildFooter = buildFooter;
+window.handleLogout = handleLogout;
+window.requireAuth = requireAuth;
+window.pouchSVG = pouchSVG;
+window.miniPouchSVG = miniPouchSVG;
+window.escapeHTML = escapeHTML;
+
 
 // ── Social Floats & FAQ Agent ───────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -1373,4 +1417,3 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
-

@@ -3,13 +3,16 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
   <title>Admin Login — ESPRESSGO</title>
 
-  <!-- Shared design system (tokens, form inputs, buttons) -->
+  <!-- Shared design system -->
   <link rel="stylesheet" href="../shared.css"/>
+
   <!-- Page-specific styles -->
   <link rel="stylesheet" href="admin-login.css"/>
 </head>
+
 <body>
 
   <!-- Centred login card -->
@@ -17,58 +20,147 @@
 
     <!-- Logo -->
     <div class="admin-logo">
-      <div class="admin-logo-icon">🛡</div>
-      <div>
-        <div style="color:var(--brown);font-weight:600;letter-spacing:.1em;">ESPRESSGO</div>
-        <div style="font-size:11px;color:var(--muted);">Admin Portal</div>
+
+      <div class="admin-logo-icon">
+        🛡
       </div>
+
+      <div>
+        <div
+          style="color:var(--brown);font-weight:600;letter-spacing:.1em;">
+          ESPRESSGO
+        </div>
+
+        <div
+          style="font-size:11px;color:var(--muted);">
+          Admin Portal
+        </div>
+      </div>
+
     </div>
 
-    <h1 style="font-size:1.3rem;color:var(--brown);margin-bottom:.25rem;">Admin Sign In</h1>
-    <p  style="font-size:13px;color:var(--muted);margin-bottom:1.5rem;">Restricted access. Authorised personnel only.</p>
+    <h1
+      style="font-size:1.3rem;color:var(--brown);margin-bottom:.25rem;">
+      Admin Sign In
+    </h1>
+
+    <p
+      style="font-size:13px;color:var(--muted);margin-bottom:1.5rem;">
+      Restricted access. Authorised personnel only.
+    </p>
 
     <!-- Server error alert -->
-    <div id="server-err" style="display:none;" class="server-err" role="alert"></div>
+    <div
+      id="server-err"
+      style="display:none;"
+      class="server-err"
+      role="alert">
+    </div>
 
     <form id="admin-form" novalidate>
 
       <!-- Email field -->
       <div class="field">
-        <label for="a-email">Email</label>
-        <input class="input" id="a-email" type="email" placeholder="admin@espressgo.sg" autocomplete="email"/>
-        <div class="err-msg" id="err-email" style="display:none;"></div>
+
+        <label for="a-email">
+          Email
+        </label>
+
+        <input
+          class="input"
+          id="a-email"
+          type="email"
+          placeholder="admin@espressgo.sg"
+          autocomplete="email"/>
+
+        <div
+          class="err-msg"
+          id="err-email"
+          style="display:none;">
+        </div>
+
       </div>
 
       <!-- Password field with show/hide toggle -->
       <div class="field">
-        <label for="a-pw">Password</label>
+
+        <label for="a-pw">
+          Password
+        </label>
+
         <div class="pw-wrap">
-          <input class="input" id="a-pw" type="password" placeholder="••••••••" autocomplete="current-password"/>
-          <button type="button" class="pw-toggle" onclick="togglePw()">👁</button>
+
+          <input
+            class="input"
+            id="a-pw"
+            type="password"
+            placeholder="••••••••"
+            autocomplete="current-password"/>
+
+          <button
+            type="button"
+            class="pw-toggle"
+            onclick="togglePw()"
+            aria-label="Show password">
+            👁
+          </button>
+
         </div>
-        <div class="err-msg" id="err-pw" style="display:none;"></div>
+
+        <div
+          class="err-msg"
+          id="err-pw"
+          style="display:none;">
+        </div>
+
       </div>
 
-      <button type="submit" class="btn-dark btn-full" id="admin-submit">
-        <span id="admin-label">Sign In →</span>
-        <span class="spinner" id="admin-spinner" style="display:none;"></span>
+      <button
+        type="submit"
+        class="btn-dark btn-full"
+        id="admin-submit">
+
+        <span id="admin-label">
+          Sign In →
+        </span>
+
+        <span
+          class="spinner"
+          id="admin-spinner"
+          style="display:none;">
+        </span>
+
       </button>
 
     </form>
 
-    <!-- Demo credentials hint -->
-    <p style="font-size:11px;text-align:center;color:var(--muted-lt);margin-top:1.25rem;">
-      Demo: <span style="color:var(--amber);">admin@espressgo.sg</span> · <span style="color:var(--amber);">admin123</span>
+    <!-- Admin note -->
+    <p
+      style="font-size:11px;text-align:center;color:var(--muted-lt);margin-top:1.25rem;line-height:1.6;">
+      Use an account with admin role in Supabase.<br>
+      Buyer accounts cannot access this portal.
     </p>
+
     <div style="text-align:center;margin-top:1rem;">
-      <a href="../about.html" style="font-size:12px;color:var(--muted);">← Back to site</a>
+      <a
+        href="../about.html"
+        style="font-size:12px;color:var(--muted);">
+        ← Back to site
+      </a>
     </div>
 
   </div>
 
-  <!-- Shared utilities (used for CSS tokens, not nav/auth in this file) -->
+  <!-- Supabase client library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Your Supabase project URL/key -->
+  <script src="../supabase-config.js"></script>
+
+  <!-- Shared utilities -->
   <script src="../shared.js"></script>
-  <!-- Page logic: toggle password, form validation, admin login -->
+
+  <!-- Page logic: toggle password, validation, admin login -->
   <script src="admin-login.js"></script>
 
 </body>

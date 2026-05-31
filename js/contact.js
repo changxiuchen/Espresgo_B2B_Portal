@@ -1,154 +1,317 @@
 /* ============================================================
    contact.js — Logic for contact.html
-   Depends on: shared.js (buildNav, buildFooter)
+   Depends on: shared.js
+   Uses:
+   - buildNav
+   - buildFooter
+   - showToast
+   - sb Supabase client
+
+   Supabase version
+   ============================================================ */
+
+
+/* ============================================================
+   Page initialisation
    ============================================================ */
 
 buildNav('contact');
 buildFooter();
 
 
-// ── Copy email to clipboard ───────────────────────────────
-const copyBtn  = document.getElementById('copy-email-btn');
+/* ============================================================
+   Copy email to clipboard
+   ============================================================ */
+
+const copyBtn = document.getElementById('copy-email-btn');
 const copyIcon = document.getElementById('copy-icon');
 
-copyBtn.addEventListener('click', () => {
-  try {
-    // Fallback clipboard method compatible with WAMP localhost
-    const ta = document.createElement('textarea');
-    ta.value = 'hello@espressgo.sg';
-    ta.style.position = 'fixed';
-    ta.style.opacity  = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
+if (copyBtn && copyIcon) {
+  copyBtn.addEventListener('click', async () => {
+    const email = 'hello@espressgo.sg';
 
-    // Visual feedback — briefly show a tick
-    copyIcon.textContent = '✅';
-    setTimeout(() => copyIcon.textContent = '📋', 2000);
-  } catch (e) {
-    // Copy may fail in some sandboxed environments; fail silently
-  }
-});
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(email);
+      } else {
+        // Fallback method for localhost / older browsers
+        const textarea = document.createElement('textarea');
+
+        textarea.value = email;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+
+        document.body.appendChild(textarea);
+
+        textarea.focus();
+        textarea.select();
+
+        document.execCommand('copy');
+
+        document.body.removeChild(textarea);
+      }
+
+      copyIcon.textContent = '✅';
+
+      showToast(
+        'Email copied',
+        'hello@espressgo.sg copied to clipboard.'
+      );
+
+      setTimeout(() => {
+        copyIcon.textContent = '📋';
+      }, 2000);
+    } catch (error) {
+      console.error('Copy email failed:', error);
+
+      showToast(
+        'Copy failed',
+        'Please copy the email manually.',
+        'error'
+      );
+    }
+  });
+}
 
 
-// ── Topic tabs (Wholesale / Feedback / Partnership / Other) ──
-// Each topic changes the message textarea placeholder text
+/* ============================================================
+   Topic tabs
+   ============================================================ */
+
 const placeholders = {
-  wholesale:   'Tell us your order volume, frequency, and delivery needs…',
-  feedback:    'Share your experience with our product or service…',
+  wholesale: 'Tell us your order volume, frequency, and delivery needs…',
+  feedback: 'Share your experience with our product or service…',
   partnership: 'Describe your business and the opportunity you have in mind…',
-  other:       'What can we help you with?',
+  other: 'What can we help you with?',
 };
 
 let activeTopic = 'wholesale';
 
 document.querySelectorAll('.topic-tab').forEach(btn => {
   btn.addEventListener('click', () => {
-    // Deactivate all tabs
-    document.querySelectorAll('.topic-tab').forEach(b => {
-      b.classList.remove('active');
-      b.setAttribute('aria-selected', 'false');
+    document.querySelectorAll('.topic-tab').forEach(tab => {
+      tab.classList.remove('active');
+      tab.setAttribute('aria-selected', 'false');
     });
-    // Activate selected tab
+
     btn.classList.add('active');
     btn.setAttribute('aria-selected', 'true');
-    activeTopic = btn.dataset.topic;
-    document.getElementById('c-message').placeholder = placeholders[activeTopic];
+
+    activeTopic = btn.dataset.topic || 'other';
+
+    const messageInput = document.getElementById('c-message');
+
+    if (messageInput) {
+      messageInput.placeholder = placeholders[activeTopic] || placeholders.other;
+    }
   });
 });
 
 
-// ── Character counter for the message textarea ────────────
-const msgEl   = document.getElementById('c-message');
+/* ============================================================
+   Character counter for message textarea
+   ============================================================ */
+
+const msgEl = document.getElementById('c-message');
 const countEl = document.getElementById('char-count');
 
-msgEl.addEventListener('input', () => {
-  const n = msgEl.value.length;
-  countEl.textContent = n + '/500';
-  // Turn amber when within 50 characters of the limit
-  countEl.classList.toggle('warn', n > 450);
-});
+if (msgEl && countEl) {
+  msgEl.addEventListener('input', () => {
+    const count = msgEl.value.length;
 
+    countEl.textContent = count + '/500';
 
-// ── Validation helper ─────────────────────────────────────
-/** Shows an error below a specific field. */
-function showErr(field, msg) {
-  const errEl = document.getElementById('err-' + field);
-  errEl.textContent = '⚠ ' + msg;
-  errEl.style.display = 'flex';
-  document.getElementById('c-' + field).classList.add('error');
+    // Turn amber when within 50 characters of the limit
+    countEl.classList.toggle('warn', count > 450);
+  });
 }
 
 
-// ── Contact form submit ───────────────────────────────────
+/* ============================================================
+   Validation helpers
+   ============================================================ */
+
+function showErr(field, msg) {
+  const errEl = document.getElementById('err-' + field);
+  const inputEl = document.getElementById('c-' + field);
+
+  if (errEl) {
+    errEl.textContent = '⚠ ' + msg;
+    errEl.style.display = 'flex';
+  }
+
+  if (inputEl) {
+    inputEl.classList.add('error');
+  }
+}
+
+
+function clearErr(field) {
+  const errEl = document.getElementById('err-' + field);
+  const inputEl = document.getElementById('c-' + field);
+
+  if (errEl) {
+    errEl.textContent = '';
+    errEl.style.display = 'none';
+  }
+
+  if (inputEl) {
+    inputEl.classList.remove('error');
+  }
+}
+
+
+function clearAllErrors() {
+  ['name', 'email', 'message'].forEach(clearErr);
+}
+
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+
+/* ============================================================
+   Submit button helpers
+   ============================================================ */
+
+function setSubmitLoading(isLoading) {
+  const label = document.getElementById('submit-label');
+  const spinner = document.getElementById('submit-spinner');
+  const btn = document.getElementById('submit-btn');
+
+  if (label) {
+    label.style.display = isLoading ? 'none' : 'inline';
+  }
+
+  if (spinner) {
+    spinner.style.display = isLoading ? 'inline-block' : 'none';
+  }
+
+  if (btn) {
+    btn.disabled = isLoading;
+  }
+}
+
+
+/* ============================================================
+   Contact form submit
+   ============================================================ */
+
 const form = document.getElementById('contact-form');
 
-form.addEventListener('submit', async (e) => {
-  e.preventDefault();
+if (form) {
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
 
-  const name    = document.getElementById('c-name').value.trim();
-  const email   = document.getElementById('c-email').value.trim();
-  const message = msgEl.value.trim();
+    const name = document.getElementById('c-name').value.trim();
+    const email = document.getElementById('c-email').value.trim();
+    const message = msgEl.value.trim();
 
-  // Clear previous errors
-  ['name', 'email', 'message'].forEach(k => {
-    document.getElementById('err-' + k).style.display = 'none';
-    document.getElementById('c-' + k).classList.remove('error');
+    clearAllErrors();
+
+    let ok = true;
+
+    if (!name) {
+      showErr('name', 'Required');
+      ok = false;
+    }
+
+    if (!email) {
+      showErr('email', 'Required');
+      ok = false;
+    } else if (!isValidEmail(email)) {
+      showErr('email', 'Invalid email');
+      ok = false;
+    }
+
+    if (!message) {
+      showErr('message', 'Required');
+      ok = false;
+    }
+
+    if (!ok) return;
+
+    setSubmitLoading(true);
+
+    try {
+      const { error } = await sb
+        .from('feedback')
+        .insert({
+          name,
+          email,
+          topic: activeTopic,
+          message
+        });
+
+      if (error) {
+        console.error('Supabase feedback insert failed:', error);
+
+        showErr(
+          'message',
+          error.message || 'Could not send message. Please try again.'
+        );
+
+        setSubmitLoading(false);
+        return;
+      }
+
+      document.getElementById('form-state').style.display = 'none';
+      document.getElementById('success-email').textContent = email;
+      document.getElementById('success-state').style.display = 'flex';
+
+      showToast(
+        'Message sent',
+        'Your enquiry has been submitted successfully.'
+      );
+    } catch (error) {
+      console.error('Contact form submit failed:', error);
+
+      showErr(
+        'message',
+        error.message || 'Could not send message. Please try again.'
+      );
+
+      setSubmitLoading(false);
+    }
   });
+}
 
-  // Validate
-  let ok = true;
-  if (!name)    { showErr('name',    'Required'); ok = false; }
-  if (!email)   { showErr('email',   'Required'); ok = false; }
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showErr('email', 'Invalid email'); ok = false; }
-  if (!message) { showErr('message', 'Required'); ok = false; }
-  if (!ok) return;
 
-  // Show spinner while "sending"
-  document.getElementById('submit-label').style.display   = 'none';
-  document.getElementById('submit-spinner').style.display = 'inline-block';
-  document.getElementById('submit-btn').disabled          = true;
+/* ============================================================
+   Send another message button
+   ============================================================ */
 
-  // Simulate async network delay
-  await new Promise(r => setTimeout(r, 700));
+const sendAnotherBtn = document.getElementById('send-another-btn');
 
-  // Save the feedback entry to localStorage (demo — no real backend)
-  const feedbacks = JSON.parse(localStorage.getItem('espressgo_feedback') || '[]');
-  feedbacks.push({
-    name,
-    email,
-    message: `[${activeTopic}] ${message}`,
-    date: new Date().toISOString(),
+if (sendAnotherBtn) {
+  sendAnotherBtn.addEventListener('click', () => {
+    document.getElementById('success-state').style.display = 'none';
+    document.getElementById('form-state').style.display = 'block';
+
+    form.reset();
+
+    clearAllErrors();
+
+    countEl.textContent = '0/500';
+    countEl.classList.remove('warn');
+
+    activeTopic = 'wholesale';
+
+    document.querySelectorAll('.topic-tab').forEach(tab => {
+      tab.classList.remove('active');
+      tab.setAttribute('aria-selected', 'false');
+    });
+
+    const wholesaleTab = document.querySelector('[data-topic="wholesale"]');
+
+    if (wholesaleTab) {
+      wholesaleTab.classList.add('active');
+      wholesaleTab.setAttribute('aria-selected', 'true');
+    }
+
+    msgEl.placeholder = placeholders.wholesale;
+
+    setSubmitLoading(false);
   });
-  localStorage.setItem('espressgo_feedback', JSON.stringify(feedbacks));
-
-  // Show success screen
-  document.getElementById('form-state').style.display    = 'none';
-  document.getElementById('success-email').textContent   = email;
-  document.getElementById('success-state').style.display = 'flex';
-});
-
-
-// ── "Send another message" button ─────────────────────────
-document.getElementById('send-another-btn').addEventListener('click', () => {
-  // Reset form to initial state
-  document.getElementById('success-state').style.display = 'none';
-  document.getElementById('form-state').style.display    = 'block';
-  form.reset();
-  countEl.textContent = '0/500';
-
-  // Reset topic tabs to "Wholesale"
-  document.querySelectorAll('.topic-tab').forEach(b => {
-    b.classList.remove('active');
-    b.setAttribute('aria-selected', 'false');
-  });
-  document.querySelector('[data-topic="wholesale"]').classList.add('active');
-  document.querySelector('[data-topic="wholesale"]').setAttribute('aria-selected', 'true');
-  activeTopic = 'wholesale';
-
-  // Reset submit button
-  document.getElementById('submit-label').style.display   = 'inline';
-  document.getElementById('submit-spinner').style.display = 'none';
-  document.getElementById('submit-btn').disabled          = false;
-});
+}

@@ -3,129 +3,407 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
   <title>Admin Dashboard — ESPRESSGO</title>
 
-  <!-- Shared design system (tokens, cards, buttons, tables) -->
+  <!-- Shared design system -->
   <link rel="stylesheet" href="../shared.css"/>
+
   <!-- Page-specific styles -->
   <link rel="stylesheet" href="admin-dashboard.css"/>
 </head>
+
 <body>
-<div class="admin-layout">
 
-  <!-- ── Sidebar navigation ────────────────────────────── -->
-  <aside class="admin-sidebar" role="navigation" aria-label="Admin navigation">
+  <!-- Toast notification container -->
+  <div id="toast-container"></div>
 
-    <!-- Logo -->
-    <div class="sidebar-logo">
-      <div class="sidebar-logo-icon">🛡</div>
-      <div>
-        <div class="sidebar-logo-text">ESPRESSGO</div>
-        <div class="sidebar-logo-sub">Admin Portal</div>
-      </div>
-    </div>
+  <div class="admin-layout">
 
-    <!-- Nav links — each calls showPanel() to switch the active panel -->
-    <nav class="sidebar-nav">
-      <button class="sidebar-link active" data-panel="dashboard" onclick="showPanel('dashboard',this)">📊 Dashboard</button>
-      <button class="sidebar-link"        data-panel="orders"    onclick="showPanel('orders',this)">📦 Order Fulfilment</button>
-      <button class="sidebar-link"        data-panel="users"     onclick="showPanel('users',this)">👥 User Approval</button>
-      <button class="sidebar-link"        data-panel="products"  onclick="showPanel('products',this)">☕ Products</button>
-      <button class="sidebar-link"        data-panel="feedback"  onclick="showPanel('feedback',this)">⭐ Feedback</button>
-    </nav>
+    <!-- ── Sidebar navigation ───────────────────────────── -->
+    <aside
+      class="admin-sidebar"
+      role="navigation"
+      aria-label="Admin navigation">
 
-    <!-- Admin account footer -->
-    <div class="sidebar-footer">
-      <div style="font-size:11px;color:#6B5744;margin-bottom:.5rem;">admin@espressgo.sg</div>
-      <button class="sidebar-logout" onclick="adminLogout()">🚪 Sign Out</button>
-    </div>
+      <!-- Logo -->
+      <div class="sidebar-logo">
 
-  </aside>
-
-  <!-- ── Main content area ──────────────────────────────── -->
-  <div class="admin-main">
-
-    <!-- Dashboard panel — shown by default -->
-    <div class="panel active" id="panel-dashboard">
-      <div class="admin-header">
-        <h1>Dashboard</h1>
-        <p id="dash-date"></p>
-      </div>
-      <!-- KPI stat cards (rendered by renderDashboard()) -->
-      <div class="stat-row" id="stat-row"></div>
-      <!-- Recent orders table -->
-      <div class="card">
-        <div style="padding:1rem 1.5rem;border-bottom:1px solid #F0EAE4;">
-          <h2 style="font-size:1rem;color:var(--brown);">Recent Orders</h2>
+        <div class="sidebar-logo-icon">
+          🛡
         </div>
-        <div style="overflow-x:auto;">
-          <table class="data-table" id="dash-orders-table">
-            <thead><tr><th>Order ID</th><th>Company</th><th>Cartons</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
-            <tbody id="dash-orders-body"></tbody>
-          </table>
+
+        <div>
+          <div class="sidebar-logo-text">
+            ESPRESSGO
+          </div>
+
+          <div class="sidebar-logo-sub">
+            Admin Portal
+          </div>
         </div>
+
+      </div>
+
+      <!-- Nav links -->
+      <nav class="sidebar-nav">
+
+        <button
+          class="sidebar-link active"
+          data-panel="dashboard"
+          onclick="showPanel('dashboard', this)"
+          type="button">
+          📊 Dashboard
+        </button>
+
+        <button
+          class="sidebar-link"
+          data-panel="orders"
+          onclick="showPanel('orders', this)"
+          type="button">
+          📦 Order Fulfilment
+        </button>
+
+        <button
+          class="sidebar-link"
+          data-panel="users"
+          onclick="showPanel('users', this)"
+          type="button">
+          👥 User Approval
+        </button>
+
+        <button
+          class="sidebar-link"
+          data-panel="products"
+          onclick="showPanel('products', this)"
+          type="button">
+          ☕ Products
+        </button>
+
+        <button
+          class="sidebar-link"
+          data-panel="feedback"
+          onclick="showPanel('feedback', this)"
+          type="button">
+          ⭐ Feedback
+        </button>
+
+      </nav>
+
+      <!-- Admin account footer -->
+      <div class="sidebar-footer">
+
+        <div
+          id="admin-email-label"
+          style="font-size:11px;color:#6B5744;margin-bottom:.5rem;">
+          Loading admin…
+        </div>
+
+        <button
+          class="sidebar-logout"
+          onclick="adminLogout()"
+          type="button">
+          🚪 Sign Out
+        </button>
+
+      </div>
+
+    </aside>
+
+    <!-- ── Main content area ────────────────────────────── -->
+    <div class="admin-main">
+
+      <!-- Loading state -->
+      <div
+        id="admin-loading"
+        class="card"
+        style="padding:2rem;text-align:center;color:var(--muted);">
+        Loading admin dashboard…
+      </div>
+
+      <!-- Dashboard content wrapper -->
+      <div
+        id="admin-content"
+        style="display:none;">
+
+        <!-- Dashboard panel -->
+        <div class="panel active" id="panel-dashboard">
+
+          <div class="admin-header">
+            <h1>Dashboard</h1>
+            <p id="dash-date"></p>
+          </div>
+
+          <!-- KPI stat cards -->
+          <div class="stat-row" id="stat-row"></div>
+
+          <!-- Recent orders table -->
+          <div class="card">
+
+            <div
+              style="padding:1rem 1.5rem;border-bottom:1px solid #F0EAE4;display:flex;align-items:center;justify-content:space-between;gap:1rem;">
+
+              <div>
+                <h2 style="font-size:1rem;color:var(--brown);">
+                  Recent Orders
+                </h2>
+
+                <p style="font-size:11px;color:var(--muted);margin-top:2px;">
+                  Latest submitted B2B orders
+                </p>
+              </div>
+
+              <button
+                class="btn-ghost btn-sm"
+                onclick="refreshAdminData()"
+                type="button">
+                ↻ Refresh
+              </button>
+
+            </div>
+
+            <div style="overflow-x:auto;">
+              <table class="data-table" id="dash-orders-table">
+
+                <thead>
+                  <tr>
+                    <th>Order ID</th>
+                    <th>Company</th>
+                    <th>Cartons</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+
+                <tbody id="dash-orders-body"></tbody>
+
+              </table>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Orders fulfilment panel -->
+        <div class="panel" id="panel-orders">
+
+          <div class="admin-header">
+            <h1>Order Fulfilment</h1>
+            <p>Manage and update order statuses.</p>
+          </div>
+
+          <div class="card">
+
+            <div
+              style="padding:1rem 1.5rem;border-bottom:1px solid #F0EAE4;display:flex;align-items:center;justify-content:space-between;gap:1rem;">
+
+              <div>
+                <h2 style="font-size:1rem;color:var(--brown);">
+                  Orders
+                </h2>
+
+                <p style="font-size:11px;color:var(--muted);margin-top:2px;">
+                  Advance orders from pending to delivered.
+                </p>
+              </div>
+
+              <button
+                class="btn-ghost btn-sm"
+                onclick="refreshAdminData()"
+                type="button">
+                ↻ Refresh
+              </button>
+
+            </div>
+
+            <div style="overflow-x:auto;">
+              <table class="data-table">
+
+                <thead>
+                  <tr>
+                    <th>Order ID</th>
+                    <th>Company</th>
+                    <th>Business Type</th>
+                    <th>Cartons</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+
+                <tbody id="orders-body"></tbody>
+
+              </table>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- User approval panel -->
+        <div class="panel" id="panel-users">
+
+          <div class="admin-header">
+            <h1>User Approval</h1>
+            <p>Review registered buyer accounts.</p>
+          </div>
+
+          <div class="card">
+
+            <div
+              style="padding:1rem 1.5rem;border-bottom:1px solid #F0EAE4;display:flex;align-items:center;justify-content:space-between;gap:1rem;">
+
+              <div>
+                <h2 style="font-size:1rem;color:var(--brown);">
+                  Buyer Accounts
+                </h2>
+
+                <p style="font-size:11px;color:var(--muted);margin-top:2px;">
+                  Profiles created during Supabase registration.
+                </p>
+              </div>
+
+              <button
+                class="btn-ghost btn-sm"
+                onclick="refreshAdminData()"
+                type="button">
+                ↻ Refresh
+              </button>
+
+            </div>
+
+            <div style="overflow-x:auto;">
+              <table class="data-table">
+
+                <thead>
+                  <tr>
+                    <th>Email</th>
+                    <th>Company</th>
+                    <th>Business Type</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+
+                <tbody id="users-body"></tbody>
+
+              </table>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Products panel -->
+        <div class="panel" id="panel-products">
+
+          <div class="admin-header">
+            <h1>Products</h1>
+            <p>View current product catalogue.</p>
+          </div>
+
+          <div class="card">
+
+            <div
+              style="padding:1rem 1.5rem;border-bottom:1px solid #F0EAE4;">
+
+              <h2 style="font-size:1rem;color:var(--brown);">
+                Product Catalogue
+              </h2>
+
+              <p style="font-size:11px;color:var(--muted);margin-top:2px;">
+                Product data is currently loaded from shared.js.
+              </p>
+
+            </div>
+
+            <div style="overflow-x:auto;">
+              <table class="data-table">
+
+                <thead>
+                  <tr>
+                    <th>SKU</th>
+                    <th>Name</th>
+                    <th>Tier 1</th>
+                    <th>Tier 2</th>
+                    <th>Tier 3</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+
+                <tbody id="products-body"></tbody>
+
+              </table>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Feedback panel -->
+        <div class="panel" id="panel-feedback">
+
+          <div class="admin-header">
+            <h1>Feedback</h1>
+            <p>Customer messages and enquiries.</p>
+          </div>
+
+          <div class="card">
+
+            <div
+              style="padding:1rem 1.5rem;border-bottom:1px solid #F0EAE4;display:flex;align-items:center;justify-content:space-between;gap:1rem;">
+
+              <div>
+                <h2 style="font-size:1rem;color:var(--brown);">
+                  Contact Messages
+                </h2>
+
+                <p style="font-size:11px;color:var(--muted);margin-top:2px;">
+                  Submitted through the contact form.
+                </p>
+              </div>
+
+              <button
+                class="btn-ghost btn-sm"
+                onclick="refreshAdminData()"
+                type="button">
+                ↻ Refresh
+              </button>
+
+            </div>
+
+            <div style="overflow-x:auto;">
+              <table class="data-table">
+
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Message</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+
+                <tbody id="feedback-body"></tbody>
+
+              </table>
+            </div>
+
+          </div>
+        </div>
+
       </div>
     </div>
 
-    <!-- Orders fulfilment panel -->
-    <div class="panel" id="panel-orders">
-      <div class="admin-header"><h1>Order Fulfilment</h1><p>Manage and update order statuses.</p></div>
-      <div class="card">
-        <div style="overflow-x:auto;">
-          <table class="data-table">
-            <thead><tr><th>Order ID</th><th>Company</th><th>Business Type</th><th>Cartons</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead>
-            <tbody id="orders-body"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+  </div>
 
-    <!-- User approval panel -->
-    <div class="panel" id="panel-users">
-      <div class="admin-header"><h1>User Approval</h1><p>Review and manage buyer accounts.</p></div>
-      <div class="card">
-        <div style="overflow-x:auto;">
-          <table class="data-table">
-            <thead><tr><th>Email</th><th>Company</th><th>Business Type</th><th>Status</th></tr></thead>
-            <tbody id="users-body"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+  <!-- Supabase client library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    <!-- Products panel -->
-    <div class="panel" id="panel-products">
-      <div class="admin-header"><h1>Products</h1><p>View current product catalogue.</p></div>
-      <div class="card">
-        <div style="overflow-x:auto;">
-          <table class="data-table">
-            <thead><tr><th>SKU</th><th>Name</th><th>Tier 1</th><th>Tier 2</th><th>Tier 3</th><th>Status</th></tr></thead>
-            <tbody id="products-body"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+  <!-- Your Supabase project URL/key -->
+  <script src="../supabase-config.js"></script>
 
-    <!-- Feedback panel -->
-    <div class="panel" id="panel-feedback">
-      <div class="admin-header"><h1>Feedback</h1><p>Customer messages and enquiries.</p></div>
-      <div class="card">
-        <div style="overflow-x:auto;">
-          <table class="data-table">
-            <thead><tr><th>Name</th><th>Email</th><th>Message</th><th>Date</th></tr></thead>
-            <tbody id="feedback-body"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+  <!-- Shared utilities: Orders, Products, Auth, showToast -->
+  <script src="../shared.js"></script>
 
-  </div><!-- end .admin-main -->
-</div><!-- end .admin-layout -->
-
-<!-- Shared utilities: Orders, Products, Auth, showToast -->
-<script src="../shared.js"></script>
-<!-- Page logic: auth guard, panel switching, render functions -->
-<script src="admin-dashboard.js"></script>
+  <!-- Page logic: admin auth guard, panel switching, render functions -->
+  <script src="admin-dashboard.js"></script>
 
 </body>
 </html>

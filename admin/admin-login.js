@@ -1,63 +1,200 @@
 /* ============================================================
-   admin-login.js — Logic for admin/admin-login.html
-   Depends on: ../shared.js (Auth — for shared CSS tokens only)
+   admin-login.js — Supabase admin login
+   Depends on:
+   - ../supabase-config.js
+   - ../shared.js
+
+   This file logs in through Supabase Auth, then checks whether
+   the logged-in profile has role = "admin".
    ============================================================ */
 
-// ── Redirect if already logged in as admin ────────────────
-if (localStorage.getItem('espressgo_admin') === 'true') {
-  window.location.href = 'admin-dashboard.html';
-}
+
+/* ============================================================
+   DOM elements
+   ============================================================ */
+
+const form = document.getElementById('admin-form');
+
+const emailInput = document.getElementById('a-email');
+const passwordInput = document.getElementById('a-pw');
+
+const serverErr = document.getElementById('server-err');
+const errEmail = document.getElementById('err-email');
+const errPw = document.getElementById('err-pw');
+
+const submitBtn = document.getElementById('admin-submit');
+const adminLabel = document.getElementById('admin-label');
+const adminSpinner = document.getElementById('admin-spinner');
 
 
-// ── Password show/hide toggle ─────────────────────────────
-function togglePw() {
-  const inp = document.getElementById('a-pw');
-  inp.type = inp.type === 'password' ? 'text' : 'password';
-}
+/* ============================================================
+   Redirect if already logged in as admin
+   ============================================================ */
 
+(async function checkExistingAdminSession() {
+  try {
+    const profile = await Auth.refreshUser();
 
-// ── Field error helper ────────────────────────────────────
-/** Shows an error message below a named field. */
-function showE(field, msg) {
-  const el = document.getElementById('err-' + field);
-  el.textContent = '⚠ ' + msg;
-  el.style.display = 'flex';
-  document.getElementById('a-' + field)?.classList.add('error');
-}
-
-
-// ── Admin login form submit ───────────────────────────────
-document.getElementById('admin-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-
-  const email = document.getElementById('a-email').value.trim();
-  const pw    = document.getElementById('a-pw').value;
-
-  document.getElementById('server-err').style.display = 'none';
-
-  // Basic validation
-  let ok = true;
-  if (!email) { showE('email', 'Required'); ok = false; }
-  if (!pw)    { showE('pw',    'Required'); ok = false; }
-  if (!ok) return;
-
-  // Show loading spinner
-  document.getElementById('admin-label').style.display   = 'none';
-  document.getElementById('admin-spinner').style.display = 'inline-block';
-  document.getElementById('admin-submit').disabled       = true;
-
-  // Simulate async (network delay)
-  await new Promise(r => setTimeout(r, 500));
-
-  // Hardcoded demo credentials — replace with a real backend check
-  if (email === 'admin@espressgo.sg' && pw === 'admin123') {
-    localStorage.setItem('espressgo_admin', 'true');
-    window.location.href = 'admin-dashboard.html';
-  } else {
-    document.getElementById('server-err').textContent    = '⚠️ Invalid admin credentials.';
-    document.getElementById('server-err').style.display  = 'flex';
-    document.getElementById('admin-label').style.display = 'inline';
-    document.getElementById('admin-spinner').style.display = 'none';
-    document.getElementById('admin-submit').disabled     = false;
+    if (profile && profile.role === 'admin') {
+      localStorage.setItem('espressgo_admin', 'true');
+      window.location.href = 'admin-dashboard.html';
+    }
+  } catch (error) {
+    console.warn('No active admin session:', error);
   }
+})();
+
+
+/* ============================================================
+   Password visibility toggle
+   ============================================================ */
+
+function togglePw() {
+  if (!passwordInput) return;
+
+  passwordInput.type =
+    passwordInput.type === 'password'
+      ? 'text'
+      : 'password';
+}
+
+window.togglePw = togglePw;
+
+
+/* ============================================================
+   Error helpers
+   ============================================================ */
+
+function showError(element, message) {
+  if (!element) return;
+
+  element.textContent = message;
+  element.style.display = 'block';
+}
+
+
+function clearErrors() {
+  if (serverErr) {
+    serverErr.style.display = 'none';
+    serverErr.textContent = '';
+  }
+
+  if (errEmail) {
+    errEmail.style.display = 'none';
+    errEmail.textContent = '';
+  }
+
+  if (errPw) {
+    errPw.style.display = 'none';
+    errPw.textContent = '';
+  }
+
+  if (emailInput) {
+    emailInput.classList.remove('error');
+  }
+
+  if (passwordInput) {
+    passwordInput.classList.remove('error');
+  }
+}
+
+
+function showServerError(message) {
+  if (!serverErr) return;
+
+  serverErr.textContent = message;
+  serverErr.style.display = 'flex';
+}
+
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+
+/* ============================================================
+   Loading state
+   ============================================================ */
+
+function setLoading(isLoading) {
+  if (submitBtn) {
+    submitBtn.disabled = isLoading;
+  }
+
+  if (adminLabel) {
+    adminLabel.style.display = isLoading ? 'none' : 'inline';
+  }
+
+  if (adminSpinner) {
+    adminSpinner.style.display = isLoading ? 'inline-block' : 'none';
+  }
+}
+
+
+/* ============================================================
+   Form submit
+   ============================================================ */
+
+form.addEventListener('submit', async function (event) {
+  event.preventDefault();
+
+  clearErrors();
+
+  const email = emailInput.value.trim();
+  const password = passwordInput.value.trim();
+
+  let valid = true;
+
+  if (!email) {
+    showError(errEmail, 'Email is required.');
+    emailInput.classList.add('error');
+    valid = false;
+  } else if (!isValidEmail(email)) {
+    showError(errEmail, 'Enter a valid email address.');
+    emailInput.classList.add('error');
+    valid = false;
+  }
+
+  if (!password) {
+    showError(errPw, 'Password is required.');
+    passwordInput.classList.add('error');
+    valid = false;
+  }
+
+  if (!valid) return;
+
+  setLoading(true);
+
+  let result;
+
+  try {
+    result = await Auth.login(email, password);
+  } catch (error) {
+    console.error('Admin login failed:', error);
+
+    result = {
+      ok: false,
+      error: error.message || 'Login failed. Please try again.'
+    };
+  }
+
+  if (!result.ok) {
+    showServerError(result.error || 'Invalid admin email or password.');
+    setLoading(false);
+    return;
+  }
+
+  const profile = Auth.getUser();
+
+  if (!profile || profile.role !== 'admin') {
+    await Auth.logout();
+
+    showServerError('Access denied. This account is not an admin account.');
+    setLoading(false);
+    return;
+  }
+
+  localStorage.setItem('espressgo_admin', 'true');
+
+  window.location.href = 'admin-dashboard.html';
 });
