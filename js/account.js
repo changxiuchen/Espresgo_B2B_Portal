@@ -526,7 +526,7 @@ initHero();
       renderAll();
     }
   } catch (err) {
-    console.error("Failed to load orders on load:", err);
+    console.error("Failed to load orders from Supabase on load:", err);
   }
 })();
 

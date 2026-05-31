@@ -8,6 +8,7 @@
    - Toast notifications
    ============================================================ */
 
+<<<<<<< HEAD
 // ── Supabase Configuration ───────────────────────────────────
 // Replace placeholders with your live credentials in production
 const SUPABASE_URL = "https://aynwtgkmrymnrhzashtf.supabase.co";
@@ -53,6 +54,54 @@ async function getSupabaseClient() {
   }
   return null;
 }
+=======
+// ── Supabase Initialization & Setup ─────────────────────────
+// Drop your live Supabase credentials here to activate real authentication and PostgreSQL storage!
+const SUPABASE_URL = "";
+const SUPABASE_ANON_KEY = "";
+
+let supabase = null;
+const isSupabaseEnabled = SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== "YOUR_SUPABASE_URL" && SUPABASE_ANON_KEY !== "YOUR_SUPABASE_ANON_KEY";
+
+if (isSupabaseEnabled) {
+  try {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log("🔌 Supabase Integration Enabled.");
+  } catch (err) {
+    console.error("❌ Failed to initialize Supabase client:", err);
+  }
+} else {
+  console.log("ℹ️ Running in Mock LocalStorage Mode. Set SUPABASE_URL & SUPABASE_ANON_KEY in shared.js to activate.");
+}
+
+// Helper to keep localStorage user cache in sync with Supabase auth state automatically
+if (isSupabaseEnabled && supabase) {
+  supabase.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+      if (profile) {
+        localStorage.setItem('espressgo_user', JSON.stringify({
+          email: profile.email,
+          companyName: profile.company_name,
+          contactName: profile.contact_name,
+          businessType: profile.business_type,
+          deliveryAddress: profile.delivery_address || ''
+        }));
+        if (profile.is_admin) {
+          localStorage.setItem('espressgo_admin', 'true');
+        }
+      }
+    } else if (event === 'SIGNED_OUT') {
+      localStorage.removeItem('espressgo_user');
+      localStorage.removeItem('espressgo_admin');
+    }
+  });
+}
+>>>>>>> parent of d1e893d (update)
 
 // ── Auth helpers ─────────────────────────────────────────────
 const Auth = {
@@ -61,6 +110,21 @@ const Auth = {
   },
   setUser(u) { 
     localStorage.setItem('espressgo_user', JSON.stringify(u)); 
+    // Sync to Supabase profiles database table if logged in and enabled
+    if (isSupabaseEnabled && supabase) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          supabase.from('profiles').update({
+            company_name: u.companyName,
+            contact_name: u.contactName,
+            business_type: u.businessType,
+            delivery_address: u.deliveryAddress
+          }).eq('id', session.user.id).then(({ error }) => {
+            if (error) console.error("Error updating profile in database:", error);
+          });
+        }
+      });
+    }
   },
   clearUser() { 
     localStorage.removeItem('espressgo_user'); 
@@ -69,6 +133,7 @@ const Auth = {
   isLoggedIn() { return !!this.getUser(); },
   
   async login(email, password) {
+<<<<<<< HEAD
     const client = await getSupabaseClient();
     if (!client) {
       // Mock mode fallback
@@ -84,6 +149,43 @@ const Auth = {
       }
       if (saved && saved.email === email && saved._pw === password) return { ok: true };
       return { ok: false, error: 'Invalid email or password.' };
+=======
+    if (isSupabaseEnabled && supabase) {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) return { ok: false, error: error.message };
+
+      const { data: profile, error: profileErr } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+
+      if (profileErr || !profile) {
+        return { ok: false, error: "Failed to load user profile details." };
+      }
+
+      const clientProfile = {
+        email: profile.email,
+        companyName: profile.company_name,
+        contactName: profile.contact_name,
+        businessType: profile.business_type,
+        deliveryAddress: profile.delivery_address || ''
+      };
+
+      this.setUser(clientProfile);
+      if (profile.is_admin) {
+        localStorage.setItem('espressgo_admin', 'true');
+        return { ok: true, isAdmin: true };
+      }
+      return { ok: true };
+    }
+
+    // Mock mode fallback
+    if (email === 'admin@espressgo.sg' && password === 'admin123') {
+      localStorage.setItem('espressgo_admin', 'true');
+      this.setUser({ email, companyName: 'ESPRESSGO Admin', contactName: 'System Admin', businessType: 'Admin', deliveryAddress: 'Admin HQ, Singapore' });
+      return { ok: true, isAdmin: true };
+>>>>>>> parent of d1e893d (update)
     }
 
     // Live Supabase Mode
@@ -130,14 +232,24 @@ const Auth = {
       this.setUser({ email, companyName, contactName, businessType, deliveryAddress: '', _pw: password });
       return { ok: true };
     }
+<<<<<<< HEAD
 
     // Live Supabase Mode
     try {
       const { data, error } = await client.auth.signUp({
+=======
+    if (saved && saved.email === email && saved._pw === password) return { ok: true };
+    return { ok: false, error: 'Invalid email or password.' };
+  },
+  async register(email, password, companyName, businessType, contactName) {
+    if (isSupabaseEnabled && supabase) {
+      const { data, error } = await supabase.auth.signUp({
+>>>>>>> parent of d1e893d (update)
         email,
         password,
         options: {
           data: {
+<<<<<<< HEAD
             contactName,
             companyName,
             businessType,
@@ -157,9 +269,31 @@ const Auth = {
     } catch (err) {
       return { ok: false, error: err.message };
     }
+=======
+            contact_name: contactName,
+            company_name: companyName,
+            business_type: businessType
+          }
+        }
+      });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, message: "Please check your email for confirmation." };
+    }
+
+    // Mock mode fallback
+    this.setUser({ email, companyName, contactName, businessType, deliveryAddress: '', _pw: password });
+    return { ok: true };
+>>>>>>> parent of d1e893d (update)
   },
 
   async logout() {
+    if (isSupabaseEnabled && supabase) {
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.error("Error signing out from Supabase:", err);
+      }
+    }
     this.clearUser();
     const client = await getSupabaseClient();
     if (client) {
@@ -288,6 +422,7 @@ const Orders = {
   _key: 'espressgo_orders',
   
   async getAll() {
+<<<<<<< HEAD
     const client = await getSupabaseClient();
     if (!client) {
       return this.getLocalOrders();
@@ -318,10 +453,21 @@ const Orders = {
 
       if (error) {
         console.error("⚠️ Failed to fetch orders from Supabase:", error.message);
+=======
+    if (isSupabaseEnabled && supabase) {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .order('date_ordered', { ascending: false });
+
+      if (error) {
+        console.error("Failed to query orders from database:", error);
+>>>>>>> parent of d1e893d (update)
         return this.getLocalOrders();
       }
 
       const mapped = data.map(o => ({
+<<<<<<< HEAD
         id: String(o.id),
         company: o.company,
         contactName: o.contact_name,
@@ -346,6 +492,23 @@ const Orders = {
       console.error("⚠️ Exception fetching orders from Supabase:", err);
       return this.getLocalOrders();
     }
+=======
+        id: o.id,
+        company: o.company_name,
+        contactName: o.contact_name,
+        totalAmount: parseFloat(o.total_amount),
+        totalCartons: o.total_cartons,
+        items: o.items,
+        status: o.status,
+        dateOrdered: o.date_ordered,
+        notes: o.notes || ''
+      }));
+
+      this.save(mapped);
+      return mapped;
+    }
+    return this.getLocalOrders();
+>>>>>>> parent of d1e893d (update)
   },
   
   getLocalOrders() {
@@ -355,6 +518,7 @@ const Orders = {
   save(orders) { localStorage.setItem(this._key, JSON.stringify(orders)); },
   
   async add(order) {
+<<<<<<< HEAD
     const client = await getSupabaseClient();
     if (!client) {
       const all = this.getLocalOrders();
@@ -436,6 +600,64 @@ const Orders = {
       this.save(all);
       return newOrder;
     }
+=======
+    if (isSupabaseEnabled && supabase) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = Auth.getUser();
+
+        const newOrder = {
+          user_id: session ? session.user.id : null,
+          company_name: order.company || user.companyName,
+          contact_name: order.contactName || user.contactName,
+          total_amount: order.totalAmount,
+          total_cartons: order.totalCartons,
+          items: order.items,
+          status: 'pending',
+          notes: order.notes || ''
+        };
+
+        const { data, error } = await supabase
+          .from('orders')
+          .insert(newOrder)
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        const formattedOrder = {
+          id: data.id,
+          company: data.company_name,
+          contactName: data.contact_name,
+          totalAmount: parseFloat(data.total_amount),
+          totalCartons: data.total_cartons,
+          items: data.items,
+          status: data.status,
+          dateOrdered: data.date_ordered,
+          notes: data.notes || ''
+        };
+
+        const cached = this.getLocalOrders();
+        cached.unshift(formattedOrder);
+        this.save(cached);
+
+        return formattedOrder;
+      } catch (err) {
+        console.error("Error creating database order:", err);
+        throw err;
+      }
+    }
+
+    const all = this.getLocalOrders();
+    const newOrder = {
+      ...order,
+      id: String(Date.now()).slice(-6),
+      dateOrdered: new Date().toISOString(),
+    };
+    all.unshift(newOrder);
+    this.save(all);
+    return newOrder;
+>>>>>>> parent of d1e893d (update)
   },
   
   forCompany(name) { 
