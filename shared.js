@@ -8,8 +8,51 @@
    - Toast notifications
    ============================================================ */
 
-// ── Local Storage Mode ───────────────────────────────────────
-console.log("ℹ️ Running in Mock LocalStorage Mode.");
+// ── Supabase Configuration ───────────────────────────────────
+// Replace placeholders with your live credentials in production
+const SUPABASE_URL = "https://aynwtgkmrymnrhzashtf.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_stk65gIeVJPmtvdRM4tKDQ_FRIyop5P";
+
+const isSupabaseEnabled = SUPABASE_URL && SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY';
+let supabase = null;
+
+if (isSupabaseEnabled) {
+  console.log("⚡ Supabase integration active.");
+} else {
+  console.log("ℹ️ Running in Mock LocalStorage Mode. Set SUPABASE_URL/KEY in shared.js to activate Supabase.");
+}
+
+// Dynamic script loader for browser CDN
+function loadSupabaseSDK() {
+  return new Promise((resolve) => {
+    if (!isSupabaseEnabled) { resolve(null); return; }
+    if (window.supabase) { resolve(window.supabase); return; }
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+    script.onload = () => resolve(window.supabase);
+    script.onerror = () => {
+      console.warn("⚠️ Failed to load Supabase SDK from CDN. Falling back to Mock mode.");
+      resolve(null);
+    };
+    document.head.appendChild(script);
+  });
+}
+
+// On-demand Supabase client lazy-initialization
+async function getSupabaseClient() {
+  if (supabase) return supabase;
+  const sdk = await loadSupabaseSDK();
+  if (sdk) {
+    try {
+      supabase = sdk.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      return supabase;
+    } catch (err) {
+      console.error("⚠️ Supabase initialization failed:", err);
+      return null;
+    }
+  }
+  return null;
+}
 
 // ── Auth helpers ─────────────────────────────────────────────
 const Auth = {
@@ -24,29 +67,135 @@ const Auth = {
     localStorage.removeItem('espressgo_admin');
   },
   isLoggedIn() { return !!this.getUser(); },
+  
   async login(email, password) {
-    // Mock mode fallback
-    if (email === 'admin@espressgo.sg' && password === 'admin123') {
-      localStorage.setItem('espressgo_admin', 'true');
-      this.setUser({ email, companyName: 'ESPRESSGO Admin', contactName: 'System Admin', businessType: 'Admin', deliveryAddress: 'Admin HQ, Singapore' });
-      return { ok: true, isAdmin: true };
+    const client = await getSupabaseClient();
+    if (!client) {
+      // Mock mode fallback
+      if (email === 'admin@espressgo.sg' && password === 'admin123') {
+        localStorage.setItem('espressgo_admin', 'true');
+        this.setUser({ email, companyName: 'ESPRESSGO Admin', contactName: 'System Admin', businessType: 'Admin', deliveryAddress: 'Admin HQ, Singapore' });
+        return { ok: true, isAdmin: true };
+      }
+      const saved = this.getUser();
+      if (email === 'test@gmail.com' && password === '123') {
+        this.setUser({ email, companyName: 'Demo Company', contactName: 'Demo User', businessType: 'Office Manager', deliveryAddress: '1 Marina Boulevard, Singapore 018989' });
+        return { ok: true };
+      }
+      if (saved && saved.email === email && saved._pw === password) return { ok: true };
+      return { ok: false, error: 'Invalid email or password.' };
     }
-    const saved = this.getUser();
-    if (email === 'test@gmail.com' && password === '123') {
-      this.setUser({ email, companyName: 'Demo Company', contactName: 'Demo User', businessType: 'Office Manager', deliveryAddress: '1 Marina Boulevard, Singapore 018989' });
+
+    // Live Supabase Mode
+    try {
+      const { data, error } = await client.auth.signInWithPassword({ email, password });
+      if (error) return { ok: false, error: error.message };
+
+      // Load matching profile data from public.profiles table
+      const { data: profile, error: pError } = await client
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+
+      if (pError) {
+        console.error("⚠️ Failed to load user profile from database:", pError.message);
+        // Fallback local user structure
+        const localUser = { email, contactName: email.split('@')[0], companyName: 'N/A', businessType: 'N/A', deliveryAddress: '' };
+        this.setUser(localUser);
+        return { ok: true };
+      }
+
+      const isAdmin = profile.role === 'admin';
+      if (isAdmin) localStorage.setItem('espressgo_admin', 'true');
+      
+      const localUser = {
+        email: profile.email || email,
+        companyName: profile.company_name,
+        contactName: profile.contact_name,
+        businessType: profile.business_type,
+        deliveryAddress: profile.delivery_address || ''
+      };
+      this.setUser(localUser);
+      return { ok: true, isAdmin };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  },
+
+  async register(email, password, companyName, businessType, contactName) {
+    const client = await getSupabaseClient();
+    if (!client) {
+      // Mock mode fallback
+      this.setUser({ email, companyName, contactName, businessType, deliveryAddress: '', _pw: password });
       return { ok: true };
     }
-    if (saved && saved.email === email && saved._pw === password) return { ok: true };
-    return { ok: false, error: 'Invalid email or password.' };
+
+    // Live Supabase Mode
+    try {
+      const { data, error } = await client.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            contactName,
+            companyName,
+            businessType,
+            deliveryAddress: ''
+          }
+        }
+      });
+
+      if (error) return { ok: false, error: error.message };
+
+      // Wait a moment for PostgreSQL triggers to insert the public.profiles record
+      await new Promise(r => setTimeout(r, 600));
+
+      const localUser = { email, companyName, contactName, businessType, deliveryAddress: '' };
+      this.setUser(localUser);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
   },
-  async register(email, password, companyName, businessType, contactName) {
-    // Mock mode fallback
-    this.setUser({ email, companyName, contactName, businessType, deliveryAddress: '', _pw: password });
-    return { ok: true };
-  },
+
   async logout() {
     this.clearUser();
+    const client = await getSupabaseClient();
+    if (client) {
+      await client.auth.signOut();
+    }
   },
+
+  async updateProfileOnSupabase(fields) {
+    const client = await getSupabaseClient();
+    if (!client) return true;
+
+    try {
+      const { data: { user } } = await client.auth.getUser();
+      if (!user) return false;
+
+      const { error } = await client
+        .from('profiles')
+        .update({
+          contact_name: fields.contactName,
+          company_name: fields.companyName,
+          business_type: fields.businessType,
+          delivery_address: fields.deliveryAddress,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (error) {
+        console.error("⚠️ Failed to update profile on Supabase:", error.message);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.error("⚠️ Exception updating profile on Supabase:", err);
+      return false;
+    }
+  }
 };
 
 // ── Product data ─────────────────────────────────────────────
@@ -139,7 +288,64 @@ const Orders = {
   _key: 'espressgo_orders',
   
   async getAll() {
-    return this.getLocalOrders();
+    const client = await getSupabaseClient();
+    if (!client) {
+      return this.getLocalOrders();
+    }
+
+    try {
+      const { data, error } = await client
+        .from('orders')
+        .select(`
+          id,
+          company,
+          contact_name,
+          business_type,
+          delivery_address,
+          total_cartons,
+          total_amount,
+          status,
+          notes,
+          created_at,
+          order_items (
+            sku,
+            name,
+            cartons,
+            price_per_carton
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error("⚠️ Failed to fetch orders from Supabase:", error.message);
+        return this.getLocalOrders();
+      }
+
+      const mapped = data.map(o => ({
+        id: String(o.id),
+        company: o.company,
+        contactName: o.contact_name,
+        businessType: o.business_type,
+        deliveryAddress: o.delivery_address,
+        totalCartons: o.total_cartons,
+        totalAmount: Number(o.total_amount),
+        status: o.status,
+        notes: o.notes,
+        dateOrdered: o.created_at,
+        items: (o.order_items || []).map(it => ({
+          sku: it.sku,
+          name: it.name,
+          cartons: it.cartons,
+          pricePerCarton: Number(it.price_per_carton)
+        }))
+      }));
+
+      this.save(mapped); // Cache locally
+      return mapped;
+    } catch (err) {
+      console.error("⚠️ Exception fetching orders from Supabase:", err);
+      return this.getLocalOrders();
+    }
   },
   
   getLocalOrders() {
@@ -149,16 +355,87 @@ const Orders = {
   save(orders) { localStorage.setItem(this._key, JSON.stringify(orders)); },
   
   async add(order) {
-    const all = this.getLocalOrders();
-    const newOrder = {
-      ...order,
-      id: String(Date.now()).slice(-6),
-      dateOrdered: new Date().toISOString(),
-      status: 'pending'
-    };
-    all.unshift(newOrder);
-    this.save(all);
-    return newOrder;
+    const client = await getSupabaseClient();
+    if (!client) {
+      const all = this.getLocalOrders();
+      const newOrder = {
+        ...order,
+        id: String(Date.now()).slice(-6),
+        dateOrdered: new Date().toISOString(),
+        status: 'pending'
+      };
+      all.unshift(newOrder);
+      this.save(all);
+      return newOrder;
+    }
+
+    try {
+      const { data: { user } } = await client.auth.getUser();
+      
+      const { data: newOrderData, error: orderError } = await client
+        .from('orders')
+        .insert({
+          profile_id: user ? user.id : null,
+          company: order.company,
+          contact_name: order.contactName,
+          business_type: order.businessType,
+          delivery_address: order.deliveryAddress,
+          total_cartons: order.totalCartons,
+          total_amount: order.totalAmount,
+          status: 'pending',
+          notes: order.notes || null
+        })
+        .select()
+        .single();
+
+      if (orderError) throw new Error(orderError.message);
+
+      const orderId = newOrderData.id;
+
+      const itemsToInsert = order.items.map(it => ({
+        order_id: orderId,
+        product_id: it.sku.includes('OG') ? 'espressgo-original' : (it.sku.includes('OAT') ? 'espressgo-oatmilk' : null),
+        sku: it.sku,
+        name: it.name,
+        cartons: it.cartons,
+        price_per_carton: it.pricePerCarton
+      }));
+
+      const { error: itemsError } = await client
+        .from('order_items')
+        .insert(itemsToInsert);
+
+      if (itemsError) {
+        console.error("⚠️ Failed to insert order items, but parent order was created:", itemsError.message);
+      }
+
+      const formattedOrder = {
+        ...order,
+        id: String(orderId),
+        dateOrdered: newOrderData.created_at,
+        status: 'pending'
+      };
+
+      // Also append to local storage cache
+      const all = this.getLocalOrders();
+      all.unshift(formattedOrder);
+      this.save(all);
+
+      return formattedOrder;
+    } catch (err) {
+      console.error("⚠️ Failed to save order to Supabase:", err);
+      const all = this.getLocalOrders();
+      const newOrder = {
+        ...order,
+        id: String(Date.now()).slice(-6),
+        dateOrdered: new Date().toISOString(),
+        status: 'pending',
+        notes: (order.notes || '') + ' (Offline Fallback)'
+      };
+      all.unshift(newOrder);
+      this.save(all);
+      return newOrder;
+    }
   },
   
   forCompany(name) { 

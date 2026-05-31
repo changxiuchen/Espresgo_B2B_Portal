@@ -430,7 +430,12 @@ function saveProfile() {
   if (companyName.length < 2) { errEl.textContent = '⚠️ Company name must be at least 2 characters.'; errEl.style.display = 'flex'; return; }
   if (!businessType)        { errEl.textContent = '⚠️ Please select a business type.';                  errEl.style.display = 'flex'; return; }
 
-  Auth.setUser({ ...Auth.getUser(), contactName, companyName, businessType, deliveryAddress });
+  const updatedUser = { ...Auth.getUser(), contactName, companyName, businessType, deliveryAddress };
+  Auth.setUser(updatedUser);
+  
+  // Asynchronously synchronize profile updates to the live database if active
+  Auth.updateProfileOnSupabase(updatedUser);
+
   editing = false;
   showToast('Profile updated', 'Your account details have been saved.');
   initHero();
