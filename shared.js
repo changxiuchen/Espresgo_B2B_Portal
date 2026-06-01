@@ -617,13 +617,13 @@ const Orders = {
 
     const items = nestedItems.length
       ? nestedItems.map(item => ({
-          id: item.id,
-          productId: item.product_id,
-          sku: item.sku,
-          name: item.name,
-          cartons: Number(item.cartons || 0),
-          pricePerCarton: Number(item.price_per_carton || 0)
-        }))
+        id: item.id,
+        productId: item.product_id,
+        sku: item.sku,
+        name: item.name,
+        cartons: Number(item.cartons || 0),
+        pricePerCarton: Number(item.price_per_carton || 0)
+      }))
       : legacyItems;
 
     return {
@@ -702,12 +702,12 @@ function buildNav(activePage) {
 
   const initials = currentUser
     ? (currentUser.contactName || currentUser.companyName || 'U')
-        .split(' ')
-        .filter(Boolean)
-        .map(word => word[0])
-        .join('')
-        .slice(0, 2)
-        .toUpperCase()
+      .split(' ')
+      .filter(Boolean)
+      .map(word => word[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase()
     : '';
 
   const portalLinks = `
@@ -1326,7 +1326,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (qLower.includes('who am i') || qLower.includes('my name') || qLower.includes('company')) {
         const currentUser = Auth.getUser();
         mockAnswer = `Hello! You are logged in as **${currentUser?.contactName || 'Valued Partner'}** representing **${currentUser?.companyName || 'ESPRESSGO Customer'}** (Business Type: ${currentUser?.businessType || 'B2B'}). How can KOPIGO help your company today? ☕ *(Local Fail-safe Mode)*`;
-      } 
+      }
       // Case 2: Cart details
       else if (qLower.includes('my cart') || qLower.includes('what did i order') || qLower.includes('what is in my cart') || qLower.includes('cart details')) {
         const localCart = JSON.parse(localStorage.getItem('espressgo_cart') || '{}');
@@ -1339,7 +1339,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           mockAnswer = `Your current B2B shopping cart is empty! Would you like me to add some cartons of Original or Oat Milk to get you started? ☕ *(Local Fail-safe Mode)*`;
         }
-      } 
+      }
       // Case 3: Order / Add to cart
       else if (qLower.includes('add') || qLower.includes('order') || qLower.includes('cart') || qLower.includes('purchase') || qLower.includes('buy') || qLower.includes('car')) {
         // Xiu Chen's exact demo request (200 pouches original, 2 cartons oat milk)
@@ -1404,19 +1404,19 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           mockAnswer = `What would you like to add to your B2B cart? We offer ESPRESSGO Original ($120/ctn) and ESPRESSGO Oat Milk ($130/ctn). Just tell me how many pouches or cartons you need! ☕ *(Local Fail-safe Mode)*`;
         }
-      } 
+      }
       // Case 4: Halal
       else if (qLower.includes('halal')) {
         mockAnswer = "Yes, absolutely! **EspressGo is 100% Halal-certified**. All of our manufacturing lines in Singapore follow MUIS guidelines. We can provide our B2B Halal certificate copy upon request! 🌙 *(Local Fail-safe Mode)*";
-      } 
+      }
       // Case 5: Delivery
       else if (qLower.includes('delivery') || qLower.includes('long')) {
         mockAnswer = "Standard B2B delivery in Singapore takes **2 to 3 business days**. We offer **free delivery** for wholesale orders of 5+ cartons. For urgent orders placed before 12 PM, we also have next-day express delivery for a SGD 15 surcharge! 🚚 *(Local Fail-safe Mode)*";
-      } 
+      }
       // Case 6: Ingredients
       else if (qLower.includes('dairy') || qLower.includes('sugar') || qLower.includes('oat')) {
         mockAnswer = "All ESPRESSGO gel shots are **100% dairy-free** and vegan-friendly! Original uses robusta cold brew coffee with low sugar, and Oat Milk uses organic oat milk lightly sweetened with natural cane sugar. ☕ *(Local Fail-safe Mode)*";
-      } 
+      }
       // Case 7: Default
       else {
         mockAnswer = `Hello B2B Partner! 👋 I am your automated B2B sales assistant. I received your inquiry: "${query}". \n\nHow can KOPIGO help fuel your team today? I can draft orders, check your current cart, or answer questions about our Halal certification and Singapore B2B delivery! ☕ *(Local Fail-safe Mode)*`;
