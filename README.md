@@ -3,7 +3,7 @@
 A client-side HTML/CSS/JavaScript B2B wholesale portal for ESPRESSGO — gel-based espresso shot pouches made in Singapore.
 
 ---
-
+##WEBSITE (https://espresgo-b2-b-portal.vercel.app/catalog)
 ## 📁 Project Structure
 
 ```
