@@ -701,4 +701,40 @@ async function initAdminDashboard() {
   setAdminLoading(false);
 }
 
+async function loadAdminSubscriptions() {
+
+  const { data } = await supabase
+    .from("subscriptions")
+    .select(`
+      *,
+      profiles(name)
+    `)
+    .eq("status", "active");
+
+  renderAdminSubscriptions(data);
+}
+
+function renderAdminSubscriptions(data) {
+
+  const container =
+    document.getElementById("adminSubscriptions");
+
+  container.innerHTML = data
+    .map(sub => `
+      <div>
+
+        Buyer:
+        ${sub.profiles?.name || "Unknown"}
+
+        <button
+          onclick="shipNow('${sub.id}')"
+        >
+          ⚡ Ship Now
+        </button>
+
+      </div>
+    `)
+    .join("");
+}
+
 initAdminDashboard();
