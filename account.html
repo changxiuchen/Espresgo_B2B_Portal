@@ -114,6 +114,16 @@
         Billing
       </button>
 
+      <button 
+        class="tab-btn"
+        role="tab"
+        data-tab="subscriptions"
+        id="tab-subscriptions"
+        aria-selected="false"
+        type="button">
+        My Subscriptions
+      </button>
+
     </div>
 
     <!-- ── Loading State ────────────────────────────────── -->
@@ -159,6 +169,15 @@
         style="display:none;">
       </div>
 
+      <div
+        id="panel-subscriptions"
+        role="tabpanel"
+        class="fade-in"
+        style="display:none;">
+
+        <div id="subscriptionsList"></div>
+
+       </div>  
     </div>
 
   </main>

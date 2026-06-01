@@ -905,4 +905,56 @@ async function initCatalogPage() {
   bindCheckoutButtons();
 }
 
+const recurringOrder = document.getElementById('recurringOrder');
+const deliveryInterval = document.getElementById('deliveryInterval');
+
+recurringOrder.addEventListener('change', () => {
+  deliveryInterval.disabled = !recurringOrder.checked;
+});
+
+async function submitOrder(cartItems) {
+
+  const recurring =
+    document.getElementById("recurringOrder").checked;
+
+  const interval =
+    document.getElementById("deliveryInterval").value;
+
+  //--------------------------------
+  // Existing order logic
+  //--------------------------------
+
+  const order = await createOrder();
+
+  //--------------------------------
+  // Recurring option
+  //--------------------------------
+
+  if (recurring) {
+
+    const {
+      data: subscription
+    } = await supabase
+      .from("subscriptions")
+      .insert({
+        buyer_id: currentUser.id,
+        interval_type: interval,
+        next_delivery_date: new Date()
+      })
+      .select()
+      .single();
+
+    const subscriptionItems =
+      cartItems.map(item => ({
+        subscription_id: subscription.id,
+        product_id: item.product_id,
+        quantity: item.quantity
+      }));
+
+    await supabase
+      .from("subscription_items")
+      .insert(subscriptionItems);
+  }
+}
+
 initCatalogPage();

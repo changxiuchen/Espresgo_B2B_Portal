@@ -1333,7 +1333,7 @@ function renderAll() {
    ============================================================ */
 
 function switchTab(name) {
-  ['overview', 'orders', 'profile', 'billing'].forEach(tab => {
+  ['overview', 'orders', 'profile', 'billing', 'subscriptions'].forEach(tab => {
     const panel = document.getElementById('panel-' + tab);
     const btn = document.getElementById('tab-' + tab);
 
@@ -1414,9 +1414,128 @@ async function initAccountPage() {
 
   initHero();
   renderAll();
+  loadSubscriptions();
   switchTab('overview');
 
   setAccountLoading(false);
+}
+
+async function loadSubscriptions() {
+
+  const { data } = await supabase
+    .from("subscriptions")
+    .select("*")
+    .eq("buyer_id", user.id);
+
+  renderSubscriptions(data);
+}
+
+function renderSubscriptions(subscriptions) {
+
+  const container =
+    document.getElementById(
+      "subscriptionsList"
+    );
+
+  if (!subscriptions.length) {
+
+    container.innerHTML = `
+      <div class="card"
+           style="padding:2rem;text-align:center;">
+
+        <div style="font-size:2rem;">
+          🔄
+        </div>
+
+        <h3>No subscriptions yet</h3>
+
+        <p style="color:var(--muted);">
+          Create a recurring order from the catalog.
+        </p>
+
+      </div>
+    `;
+
+    return;
+  }
+
+  container.innerHTML =
+    subscriptions.map(sub => `
+      <div class="subscription-card">
+
+        <h3>
+          ${sub.interval_type}
+        </h3>
+
+        <p>
+          Status:
+          ${sub.status}
+        </p>
+
+        <div
+          style="display:flex;gap:.5rem;">
+
+          <button
+            class="btn-dark"
+            onclick="toggleSubscription(
+              '${sub.id}',
+              '${sub.status}'
+            )">
+
+            ${
+              sub.status === 'active'
+                ? 'Pause'
+                : 'Resume'
+            }
+
+          </button>
+
+          <button
+            class="btn-ghost"
+            onclick="cancelSubscription(
+              '${sub.id}'
+            )">
+
+            Cancel
+
+          </button>
+
+        </div>
+
+      </div>
+    `).join('');
+}
+
+async function toggleSubscription(
+  id,
+  currentStatus
+) {
+
+  const newStatus =
+    currentStatus === "active"
+      ? "paused"
+      : "active";
+
+  await supabase
+    .from("subscriptions")
+    .update({
+      status: newStatus
+    })
+    .eq("id", id);
+
+  loadSubscriptions();
+}
+
+async function cancelSubscription(id) {
+
+  await supabase
+    .from("subscriptions")
+    .update({
+      status: "cancelled"
+    })
+    .eq("id", id);
+
+  loadSubscriptions();
 }
 
 initAccountPage();
