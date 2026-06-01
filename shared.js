@@ -1507,47 +1507,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (response.ok) {
           const data = await response.json();
           const rawAnswer = data.answer || "I parsed the coffee matrix, but found an empty response. Try rephrasing!";
-<<<<<<< Updated upstream
-
-          // Regex to check for [[ORDER_ACTION: productId, cartons]]
-          const orderMatch = rawAnswer.match(/\[\[ORDER_ACTION:\s*([a-zA-Z0-9_-]+),\s*(\d+)\s*\]\]/);
-
-          // Strip out structured brackets entirely to keep the visual UI clean
-          const cleanedAnswer = rawAnswer.replace(/\[\[.*?\]\]/g, '').trim();
-
-          addMessage('agent', cleanedAnswer);
-
-          // Track in chat history
-          chatHistory.push({ role: 'user', content: queryText });
-          chatHistory.push({ role: 'agent', content: cleanedAnswer });
-          if (chatHistory.length > 12) chatHistory.splice(0, chatHistory.length - 12);
-
-          // If the AI trigger is found, update the cart dynamically!
-          if (orderMatch) {
-            const productId = orderMatch[1];
-            const cartons = parseInt(orderMatch[2], 10);
-
-            console.log(`🤖 AI Order Trigger matched! Adding ${cartons} cartons of ${productId} to cart.`);
-
-            // 1. Persist the updated cart state inside localStorage
-            const localCart = JSON.parse(localStorage.getItem('espressgo_cart') || '{}');
-            localCart[productId] = (localCart[productId] || 0) + cartons;
-            localStorage.setItem('espressgo_cart', JSON.stringify(localCart));
-
-            // 2. If currently viewing catalog.html, execute page-level UI refresh
-            if (typeof window.updateCart === 'function') {
-              window.updateCart(productId, localCart[productId]);
-            }
-
-            // 3. Display B2B Toast notification
-            if (typeof showToast === 'function') {
-              const productName = productId === 'espressgo-original' ? 'ESPRESSGO Original' : 'ESPRESSGO Oat Milk';
-              showToast("AI Order Drafted!", `Added ${cartons} cartons of ${productName} to your cart.`, "success");
-            }
-          }
-=======
           processAnswer(rawAnswer);
->>>>>>> Stashed changes
         } else {
           console.error('API non-OK response status, launching fail-safe frontend chat engine:', response.status);
           const localAnswer = runLocalMockFallback(queryText);
