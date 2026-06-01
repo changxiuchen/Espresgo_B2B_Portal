@@ -1422,12 +1422,21 @@ async function initAccountPage() {
 
 async function loadSubscriptions() {
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("subscriptions")
-    .select("*")
-    .eq("buyer_id", user.id);
+    .select(`
+      *,
+      subscription_items (*)
+    `)
+    .eq("profile_id", user.id)
+    .order("created_at", { ascending: false });
 
-  renderSubscriptions(data);
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  renderSubscriptions(data || []);
 }
 
 function renderSubscriptions(subscriptions) {
@@ -1464,7 +1473,7 @@ function renderSubscriptions(subscriptions) {
       <div class="subscription-card">
 
         <h3>
-          ${sub.interval_type}
+          ${sub.frequency}
         </h3>
 
         <p>

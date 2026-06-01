@@ -932,24 +932,27 @@ async function submitOrder(cartItems) {
 
   if (recurring) {
 
-    const {
-      data: subscription
-    } = await supabase
-      .from("subscriptions")
-      .insert({
-        buyer_id: currentUser.id,
-        interval_type: interval,
-        next_delivery_date: new Date()
-      })
-      .select()
-      .single();
+    const { data: subscription } = await supabase
+    .from("subscriptions")
+    .insert({
+      profile_id: currentUser.id,
+      frequency: interval,
+      status: "active",
+      next_delivery_date: new Date().toISOString(),
+      delivery_address: currentUser.deliveryAddress,
+      total_amount: totalPrice()
+    })
+    .select()
+    .single();
 
-    const subscriptionItems =
-      cartItems.map(item => ({
-        subscription_id: subscription.id,
-        product_id: item.product_id,
-        quantity: item.quantity
-      }));
+    const subscriptionItems = cartItems.map(item => ({
+      subscription_id: subscription.id,
+      product_id: item.product_id,
+      sku: item.sku,
+      name: item.name,
+      cartons: item.cartons,
+      price_per_carton: item.price_per_carton
+    }));
 
     await supabase
       .from("subscription_items")
