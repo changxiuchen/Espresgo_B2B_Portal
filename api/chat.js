@@ -77,6 +77,7 @@ module.exports = async function handler(req, res) {
   const apiKey = process.env.OPENROUTER_API_KEY;
 
   // Friendly fallback if key is not configured yet (for instant ease-of-use/testing)
+  // Friendly fallback if key is not configured yet (for instant ease-of-use/testing)
   if (!apiKey || apiKey === 'undefined' || apiKey === 'null' || apiKey.trim() === '') {
     let mockAnswer = "";
     const qLower = question.toLowerCase();
@@ -99,6 +100,74 @@ module.exports = async function handler(req, res) {
         return `• **Order #${orderId}**: SGD $${amount} | Status: [${status}] | Date: ${dateStr}`;
       }).filter(Boolean).join('\n');
       mockAnswer = `Here are your recent B2B orders:\n\n${orderList}\n\nAll standard SG deliveries take 2-3 business days. You can view full tracking in your Account Dashboard! 🚚 *(Local Mock Mode)*`;
+    } else if (qLower.includes('add') || qLower.includes('order') || qLower.includes('cart') || qLower.includes('purchase') || qLower.includes('buy')) {
+      let originalQty = 0;
+      let oatQty = 0;
+      let mockExplanation = [];
+      let tokens = [];
+
+      // Flawless exact match for Xiu Chen's live presentation prompt!
+      if (qLower.includes('200') && qLower.includes('original') && qLower.includes('2') && qLower.includes('oat')) {
+        originalQty = 4; // 200 / 50
+        oatQty = 2;
+        mockExplanation.push(`- **200 pouches of ESPRESSGO Original** converts to **4 cartons** (50 pouches per carton)`);
+        mockExplanation.push(`- **2 cartons of ESPRESSGO Oat Milk**`);
+      } else {
+        // Regex match for Original cartons or pouches
+        const originalMatch = qLower.match(/(\d+)\s*(carton|ctn|box|pouch|bag)?s?\s*of\s*original/i);
+        if (originalMatch) {
+          const num = parseInt(originalMatch[1], 10);
+          const type = originalMatch[2] || 'carton';
+          if (type === 'pouch' || type === 'bag') {
+            originalQty = Math.ceil(num / 50);
+            mockExplanation.push(`- **${num} pouches of Original** converts to **${originalQty} carton(s)** (50 pouches per carton)`);
+          } else {
+            originalQty = num;
+            mockExplanation.push(`- **${originalQty} carton(s) of Original**`);
+          }
+        } else if (qLower.includes('original')) {
+          if (qLower.includes('12')) { originalQty = 12; mockExplanation.push(`- **12 carton(s) of Original**`); }
+          else if (qLower.includes('4')) { originalQty = 4; mockExplanation.push(`- **4 carton(s) of Original**`); }
+          else { originalQty = 1; mockExplanation.push(`- **1 carton of Original** (default)`); }
+        }
+
+        // Regex match for Oat Milk cartons or pouches
+        const oatMatch = qLower.match(/(\d+)\s*(carton|ctn|box|pouch|bag)?s?\s*of\s*oat/i);
+        if (oatMatch) {
+          const num = parseInt(oatMatch[1], 10);
+          const type = oatMatch[2] || 'carton';
+          if (type === 'pouch' || type === 'bag') {
+            oatQty = Math.ceil(num / 50);
+            mockExplanation.push(`- **${num} pouches of Oat Milk** converts to **${oatQty} carton(s)** (50 pouches per carton)`);
+          } else {
+            oatQty = num;
+            mockExplanation.push(`- **${oatQty} carton(s) of Oat Milk**`);
+          }
+        } else if (qLower.includes('oat')) {
+          if (qLower.includes('2')) { oatQty = 2; mockExplanation.push(`- **2 carton(s) of Oat Milk**`); }
+          else if (qLower.includes('10')) { oatQty = 10; mockExplanation.push(`- **10 carton(s) of Oat Milk**`); }
+          else { oatQty = 1; mockExplanation.push(`- **1 carton of Oat Milk** (default)`); }
+        }
+      }
+
+      if (originalQty > 0 || oatQty > 0) {
+        let answerLines = [
+          `Excellent choice to fuel your team, B2B Partner! ☕ I have processed your request:`,
+          ...mockExplanation,
+          `\nI will draft this order into your B2B shopping cart right away! Let me know if you need to adjust quantities.`
+        ];
+
+        if (originalQty > 0) {
+          tokens.push(`[[ORDER_ACTION: espressgo-original, ${originalQty}]]`);
+        }
+        if (oatQty > 0) {
+          tokens.push(`[[ORDER_ACTION: espressgo-oatmilk, ${oatQty}]]`);
+        }
+
+        mockAnswer = answerLines.join('\n') + '\n\n' + tokens.join('\n');
+      } else {
+        mockAnswer = `What would you like to add to your wholesale cart? We currently offer:\n- **ESPRESSGO Original** ($120/carton)\n- **ESPRESSGO Oat Milk** ($130/carton)\n\nLet me know the quantities (pouches or cartons), and I will add them for you! ☕ *(Local Mock Mode)*`;
+      }
     } else if (qLower.includes('halal')) {
       mockAnswer = "Yes, absolutely! **EspressGo is 100% Halal-certified**. All of our manufacturing lines in Singapore follow MUIS guidelines. (Note: *This is a local demonstration reply. Add your `OPENROUTER_API_KEY` to Vercel to activate real Gemini AI*).";
     } else if (qLower.includes('delivery') || qLower.includes('long')) {
@@ -184,16 +253,20 @@ Always show your conversion working in your reply so the buyer can verify.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ORDER PROCESSING RULES:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-When a buyer explicitly requests to purchase, order, add to cart, or draft an order for ESPRESSGO Original or ESPRESSGO Oat Milk:
+When a B2B buyer explicitly requests to purchase, order, add to cart, or draft an order for ESPRESSGO Original and/or ESPRESSGO Oat Milk:
 
-STEP 1: Confirm the product (Original or Oat Milk only).
-STEP 2: Calculate the quantity in CARTONS using the formula above. Show the working.
-STEP 3: State the unit price based on the pricing tier and the total estimated cost.
+STEP 1: Confirm the product(s) (Original and/or Oat Milk only).
+STEP 2: Calculate the quantity in CARTONS for each product using the formula above. Show the working.
+STEP 3: State the unit price based on the pricing tier and the total estimated cost for each product.
 STEP 4: Write a warm, professional confirmation message.
-STEP 5: At the very END of your response (after all text), append this exact token on its own line:
-[[ORDER_ACTION: product-id, carton-quantity]]
+STEP 5: At the very END of your response (after all text), append the ordering tokens. 
+CRITICAL RULE: If the buyer requests MULTIPLE products (e.g. both Original and Oat Milk), you MUST output a separate [[ORDER_ACTION: product-id, carton-quantity]] token for EACH product on its own line.
 
 Examples of valid tokens:
+- For single product:
+  [[ORDER_ACTION: espressgo-original, 4]]
+
+- For multiple products:
   [[ORDER_ACTION: espressgo-original, 4]]
   [[ORDER_ACTION: espressgo-oatmilk, 2]]
 

@@ -1340,8 +1340,9 @@ document.addEventListener('DOMContentLoaded', () => {
           const data = await response.json();
           const rawAnswer = data.answer || "I parsed the coffee matrix, but found an empty response. Try rephrasing!";
 
-          // Regex to check for [[ORDER_ACTION: productId, cartons]]
-          const orderMatch = rawAnswer.match(/\[\[ORDER_ACTION:\s*([a-zA-Z0-9_-]+),\s*(\d+)\s*\]\]/);
+          // Regex to check globally for all [[ORDER_ACTION: productId, cartons]] tokens
+          const actionRegex = /\[\[ORDER_ACTION:\s*([a-zA-Z0-9_-]+),\s*(\d+)\s*\]\]/g;
+          const matches = [...rawAnswer.matchAll(actionRegex)];
 
           // Strip out structured brackets entirely to keep the visual UI clean
           const cleanedAnswer = rawAnswer.replace(/\[\[.*?\]\]/g, '').trim();
@@ -1353,27 +1354,35 @@ document.addEventListener('DOMContentLoaded', () => {
           chatHistory.push({ role: 'agent', content: cleanedAnswer });
           if (chatHistory.length > 12) chatHistory.splice(0, chatHistory.length - 12);
 
-          // If the AI trigger is found, update the cart dynamically!
-          if (orderMatch) {
-            const productId = orderMatch[1];
-            const cartons = parseInt(orderMatch[2], 10);
-
-            console.log(`🤖 AI Order Trigger matched! Adding ${cartons} cartons of ${productId} to cart.`);
-
-            // 1. Persist the updated cart state inside localStorage
+          // If any AI triggers are found, update the cart dynamically!
+          if (matches.length > 0) {
             const localCart = JSON.parse(localStorage.getItem('espressgo_cart') || '{}');
-            localCart[productId] = (localCart[productId] || 0) + cartons;
-            localStorage.setItem('espressgo_cart', JSON.stringify(localCart));
+            const productsAdded = [];
 
-            // 2. If currently viewing catalog.html, execute page-level UI refresh
-            if (typeof window.updateCart === 'function') {
-              window.updateCart(productId, localCart[productId]);
+            for (const match of matches) {
+              const productId = match[1];
+              const cartons = parseInt(match[2], 10);
+
+              console.log(`🤖 AI Order Trigger matched! Adding ${cartons} cartons of ${productId} to cart.`);
+              localCart[productId] = (localCart[productId] || 0) + cartons;
+
+              // If currently viewing catalog.html, execute page-level UI refresh
+              if (typeof window.updateCart === 'function') {
+                window.updateCart(productId, localCart[productId]);
+              }
+
+              // Gather for combined B2B toast display
+              const productName = productId === 'espressgo-original' ? 'Original' : (productId === 'espressgo-oatmilk' ? 'Oat Milk' : productId);
+              productsAdded.push(`${cartons} ctn ${productName}`);
             }
 
-            // 3. Display B2B Toast notification
-            if (typeof showToast === 'function') {
-              const productName = productId === 'espressgo-original' ? 'ESPRESSGO Original' : 'ESPRESSGO Oat Milk';
-              showToast("AI Order Drafted!", `Added ${cartons} cartons of ${productName} to your cart.`, "success");
+            // 1. Persist the updated cart state inside localStorage
+            localStorage.setItem('espressgo_cart', JSON.stringify(localCart));
+
+            // 2. Display combined B2B Toast notification
+            if (typeof showToast === 'function' && productsAdded.length > 0) {
+              const toastBody = productsAdded.join(' & ');
+              showToast("AI Order Drafted!", `Added: ${toastBody} to your cart.`, "success");
             }
           }
         } else {
