@@ -1388,9 +1388,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (originalQty > 0 || oatQty > 0) {
           let answerLines = [
-            `Excellent choice to fuel your team, B2B Partner! ☕ I have processed your request:`,
+            `Excellent choice! ☕ I've processed your B2B request:`,
             ...mockExplanation,
-            `\nI will draft this order into your B2B shopping cart right away! Let me know if you need to adjust anything.`
+            `Drafting this order into your wholesale cart right away!`
           ];
 
           if (originalQty > 0) {
