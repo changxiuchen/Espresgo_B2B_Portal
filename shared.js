@@ -1349,12 +1349,12 @@ document.addEventListener('DOMContentLoaded', () => {
           mockExplanation.push(`- **200 pouches of ESPRESSGO Original** converts to **4 cartons** (50 pouches per carton)`);
           mockExplanation.push(`- **2 cartons of ESPRESSGO Oat Milk**`);
         } else {
-          // Parse Original
-          const originalMatch = qLower.match(/(\d+)\s*(carton|ctn|box|pouch|bag)?s?\s*of\s*original/i);
+          // Parse Original (with spelling typo tolerance)
+          const originalMatch = qLower.match(/(\d+)\s*(carton|cartn|ctn|box|pouch|pouches|puches|puch|puche|bag)?s?\s*of\s*original/i);
           if (originalMatch) {
             const num = parseInt(originalMatch[1], 10);
-            const type = originalMatch[2] || 'carton';
-            if (type === 'pouch' || type === 'bag') {
+            const unit = (originalMatch[2] || 'carton').toLowerCase();
+            if (unit.includes('pouch') || unit.includes('puch') || unit.includes('puche') || unit.includes('bag')) {
               originalQty = Math.ceil(num / 50);
               mockExplanation.push(`- **${num} pouches of Original** converts to **${originalQty} carton(s)** (50 pouches per carton)`);
             } else {
@@ -1367,12 +1367,12 @@ document.addEventListener('DOMContentLoaded', () => {
             else { originalQty = 1; mockExplanation.push(`- **1 carton of Original**`); }
           }
 
-          // Parse Oat Milk
-          const oatMatch = qLower.match(/(\d+)\s*(carton|ctn|box|pouch|bag)?s?\s*of\s*oat/i);
+          // Parse Oat Milk (with spelling typo tolerance)
+          const oatMatch = qLower.match(/(\d+)\s*(carton|cartn|ctn|box|pouch|pouches|puches|puch|puche|bag)?s?\s*of\s*oat/i);
           if (oatMatch) {
             const num = parseInt(oatMatch[1], 10);
-            const type = oatMatch[2] || 'carton';
-            if (type === 'pouch' || type === 'bag') {
+            const unit = (oatMatch[2] || 'carton').toLowerCase();
+            if (unit.includes('pouch') || unit.includes('puch') || unit.includes('puche') || unit.includes('bag')) {
               oatQty = Math.ceil(num / 50);
               mockExplanation.push(`- **${num} pouches of Oat Milk** converts to **${oatQty} carton(s)** (50 pouches per carton)`);
             } else {
