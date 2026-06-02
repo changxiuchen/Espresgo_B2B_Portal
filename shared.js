@@ -1440,12 +1440,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function processAnswer(rawAnswer) {
       removeTypingIndicator();
 
-      // Regex to check globally for all [[ORDER_ACTION: productId, cartons]] tokens
-      const actionRegex = /\[\[ORDER_ACTION:\s*([a-zA-Z0-9_-]+),\s*(\d+)\s*(?:carton|ctn|box)?s?\s*\]\]/gi;
+      // Regex to check globally for all [[ORDER_ACTION: productId, cartons]] tokens (supports single/double brackets)
+      const actionRegex = /\[{1,2}ORDER_ACTION:\s*([a-zA-Z0-9_-]+),\s*(\d+)\s*(?:carton|ctn|box)?s?\s*\]{1,2}/gi;
       const matches = [...rawAnswer.matchAll(actionRegex)];
 
       // Strip out structured brackets entirely to keep the visual UI clean
-      const cleanedAnswer = rawAnswer.replace(/\[\[.*?\]\]/g, '').trim();
+      const cleanedAnswer = rawAnswer.replace(/\[{1,2}ORDER_ACTION:.*?\]{1,2}/gi, '').trim();
 
       addMessage('agent', cleanedAnswer);
 
@@ -1461,7 +1461,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         for (const match of matches) {
           let productId = match[1].toLowerCase().trim();
-          const cartons = parseInt(match[2], 10);
+          let cartons = parseInt(match[2], 10);
+
+          // AUTO-HEALING: If the AI made a mistake and emitted the pouch count directly in the token
+          // (e.g. [[ORDER_ACTION: product, 100]] instead of 2, when the user asked for 100 pouches),
+          // we dynamically divide it by 50 and round up!
+          if (cartons >= 50 && qLower.includes(String(cartons)) && (qLower.includes('pouch') || qLower.includes('puch') || qLower.includes('puche') || qLower.includes('poche') || qLower.includes('bag'))) {
+            console.warn(`⚠️ AI emitted pouch quantity (${cartons}) instead of cartons in token. Auto-converting to cartons...`);
+            cartons = Math.ceil(cartons / 50);
+          }
 
           // HEALING / NORMALIZATION:
           // Heal different spelling variants dynamically
