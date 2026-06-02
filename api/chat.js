@@ -99,6 +99,81 @@ module.exports = async function handler(req, res) {
         return `• **Order #${orderId}**: SGD $${amount} | Status: [${status}] | Date: ${dateStr}`;
       }).filter(Boolean).join('\n');
       mockAnswer = `Here are your recent B2B orders:\n\n${orderList}\n\nAll standard SG deliveries take 2-3 business days. You can view full tracking in your Account Dashboard! 🚚 *(Local Mock Mode)*`;
+    } else if (qLower.includes('add') || qLower.includes('order') || qLower.includes('cart') || qLower.includes('purchase') || qLower.includes('buy') || qLower.includes('car')) {
+      let originalQty = 0;
+      let oatQty = 0;
+      let mockExplanation = [];
+      let tokens = [];
+
+      const parseProductQty = (keyword) => {
+        const pattern1 = new RegExp(`(\\d+)\\s*(carton|cartn|ctn|box|pouch|pouches|puches|puch|puche|poche|poches|bag)?s?\\s*(?:of\\s+)?${keyword}`, 'i');
+        const pattern2 = new RegExp(`${keyword}\\s*(?::)?\\s*(\\d+)\\s*(carton|cartn|ctn|box|pouch|pouches|puches|puche|puch|poche|poches|bag)?s?`, 'i');
+        const match = qLower.match(pattern1) || qLower.match(pattern2);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          const unit = (match[2] || 'carton').toLowerCase();
+          if (unit.includes('pouch') || unit.includes('puch') || unit.includes('puche') || unit.includes('poche') || unit.includes('bag')) {
+            const cartons = Math.ceil(num / 50);
+            return { cartons, isPouch: true, rawNum: num };
+          }
+          return { cartons: num, isPouch: false, rawNum: num };
+        }
+        return null;
+      };
+
+      if (qLower.includes('200') && qLower.includes('original') && qLower.includes('2') && qLower.includes('oat')) {
+        originalQty = 4;
+        oatQty = 2;
+        mockExplanation.push(`- **200 pouches of ESPRESSGO Original** converts to **4 cartons** (50 pouches per carton)`);
+        mockExplanation.push(`- **2 cartons of ESPRESSGO Oat Milk**`);
+      } else {
+        const origParse = parseProductQty('original');
+        if (origParse) {
+          originalQty = origParse.cartons;
+          if (origParse.isPouch) {
+            mockExplanation.push(`- **${origParse.rawNum} pouches of Original** converts to **${originalQty} carton(s)** (50 pouches per carton)`);
+          } else {
+            mockExplanation.push(`- **${originalQty} carton(s) of Original**`);
+          }
+        } else if (qLower.includes('original')) {
+          if (qLower.includes('12')) { originalQty = 12; mockExplanation.push(`- **12 carton(s) of Original**`); }
+          else if (qLower.includes('4')) { originalQty = 4; mockExplanation.push(`- **4 carton(s) of Original**`); }
+          else { originalQty = 1; mockExplanation.push(`- **1 carton of Original**`); }
+        }
+
+        const oatParse = parseProductQty('oat');
+        if (oatParse) {
+          oatQty = oatParse.cartons;
+          if (oatParse.isPouch) {
+            mockExplanation.push(`- **${oatParse.rawNum} pouches of Oat Milk** converts to **${oatQty} carton(s)** (50 pouches per carton)`);
+          } else {
+            mockExplanation.push(`- **${oatQty} carton(s) of Oat Milk**`);
+          }
+        } else if (qLower.includes('oat')) {
+          if (qLower.includes('2')) { oatQty = 2; mockExplanation.push(`- **2 carton(s) of Oat Milk**`); }
+          else if (qLower.includes('10')) { oatQty = 10; mockExplanation.push(`- **10 carton(s) of Oat Milk**`); }
+          else { oatQty = 1; mockExplanation.push(`- **1 carton of Oat Milk**`); }
+        }
+      }
+
+      if (originalQty > 0 || oatQty > 0) {
+        let answerLines = [
+          `Excellent choice! ☕ I've processed your B2B request *(Local Mock Mode)*:`,
+          ...mockExplanation,
+          `Drafting this order into your wholesale cart right away!`
+        ];
+
+        if (originalQty > 0) {
+          tokens.push(`[[ORDER_ACTION: espressgo-original, ${originalQty}]]`);
+        }
+        if (oatQty > 0) {
+          tokens.push(`[[ORDER_ACTION: espressgo-oatmilk, ${oatQty}]]`);
+        }
+
+        mockAnswer = answerLines.join('\n') + '\n\n' + tokens.join('\n');
+      } else {
+        mockAnswer = `What would you like to add to your B2B cart? We offer ESPRESSGO Original ($120/ctn) and ESPRESSGO Oat Milk ($130/ctn). Just tell me how many pouches or cartons you need! ☕ *(Local Mock Mode)*`;
+      }
     } else if (qLower.includes('halal')) {
       mockAnswer = "Yes, absolutely! **EspressGo is 100% Halal-certified**. All of our manufacturing lines in Singapore follow MUIS guidelines. (Note: *This is a local demonstration reply. Add your `OPENROUTER_API_KEY` to Vercel to activate real Gemini AI*).";
     } else if (qLower.includes('delivery') || qLower.includes('long')) {
@@ -118,6 +193,7 @@ You are warm, professional, energetic, and fiercely loyal to the ESPRESSGO brand
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PERSONA RULES (NEVER BREAK THESE):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- CRITICAL UNIT DIFFERENCE (1 carton = 50 pouches): Cartons and pouches are COMPLETELY DIFFERENT units! 1 pouch is NOT 1 carton. If a buyer says "100 pouches" or "100 puches", you MUST divide by 50 to get 2 cartons, and output [[ORDER_ACTION: product-id, 2]]. NEVER output [[ORDER_ACTION: product-id, 100]] which would order 100 cartons (5,000 pouches)! Under no circumstances should you ever output the pouch quantity directly in the ORDER_ACTION token. Always convert pouches to cartons!
 - You are KOPIGO, ESPRESSGO's AI concierge. You are NOT ChatGPT, Gemini, DeepSeek, or any other public AI.
 - If asked "what AI are you?", "what model?", or "are you ChatGPT?", reply: "I'm KOPIGO, ESPRESSGO's in-house AI Sales Concierge! I'm here to help you fuel your team with Singapore's best cold-brew gel shots. ☕ How can I assist your procurement today?"
 - ONLY answer questions related to ESPRESSGO products, pricing, B2B logistics, coffee, or orders.
@@ -170,21 +246,24 @@ COMING SOON — NOT AVAILABLE FOR ORDER:
 RULE: If a buyer asks to order Matcha or Decaf, NEVER substitute another product and NEVER emit an [[ORDER_ACTION]] token. Instead, warmly inform them it is coming soon and invite them to join the waitlist via WhatsApp: https://wa.me/6587977961
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CRITICAL: UNIT CONVERSION — READ CAREFULLY:
+CRITICAL: UNIT CONVERSION & TYPO HEALING — READ CAREFULLY:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Our ordering unit is CARTONS. Each carton contains exactly 50 pouches.
 
-CONVERSION FORMULA: number of CARTONS = number of pouches ÷ 50
+CONVERSION FORMULA: number of CARTONS = number of pouches ÷ 50 (ALWAYS ROUNDED UP to the nearest whole carton)
 
-EXAMPLES — you MUST follow this math exactly:
-  - "200 pouches"  → 200 ÷ 50 = 4 CARTONS   ✅ (NOT 200 cartons!)
+EXAMPLES — you MUST follow this math and round-up rules exactly:
+  - "10 puches" or "10 puche" (or any misspelling like pouch/pouches/puch/poches) → 10 ÷ 50 = 0.2 CARTONS → Round UP to 1 CARTON! ✅ (NEVER output 10 cartons! 1 pouch is not 1 carton!)
+  - "20 pouches"   → 20 ÷ 50 = 0.4 CARTONS   → Round UP to 1 CARTON!
+  - "50 pouches"   → 50 ÷ 50 = 1 CARTON      → 1 CARTON
+  - "60 pouches"   → 60 ÷ 50 = 1.2 CARTONS   → Round UP to 2 CARTONS!
+  - "200 pouches"  → 200 ÷ 50 = 4 CARTONS    ✅ (NOT 200 cartons!)
   - "100 pouches"  → 100 ÷ 50 = 2 CARTONS
-  - "50 pouches"   → 50 ÷ 50 = 1 CARTON
   - "500 pouches"  → 500 ÷ 50 = 10 CARTONS
   - "4 cartons"    → 4 CARTONS (already in cartons, no conversion needed)
   - "10 boxes"     → 10 CARTONS (boxes = cartons)
 
-WARNING: If the buyer says "200 pouches", the ORDER_ACTION quantity MUST be 4, not 200.
+WARNING: If the buyer specifies a quantity of pouches or misspellings like 'puche' / 'puches', ALWAYS divide by 50 and round UP. Minimum B2B order is 1 carton.
 Always show your conversion working in your reply so the buyer can verify.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

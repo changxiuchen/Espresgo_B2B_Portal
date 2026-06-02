@@ -1342,6 +1342,23 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       // Case 3: Order / Add to cart
       else if (qLower.includes('add') || qLower.includes('order') || qLower.includes('cart') || qLower.includes('purchase') || qLower.includes('buy') || qLower.includes('car')) {
+        // Helper function for smart B2B pouch-to-carton conversion with spelling heals
+        const parseProductQty = (keyword) => {
+          const pattern1 = new RegExp(`(\\d+)\\s*(carton|cartn|ctn|box|pouch|pouches|puches|puch|puche|poche|poches|bag)?s?\\s*(?:of\\s+)?${keyword}`, 'i');
+          const pattern2 = new RegExp(`${keyword}\\s*(?::)?\\s*(\\d+)\\s*(carton|cartn|ctn|box|pouch|pouches|puches|puche|puch|poche|poches|bag)?s?`, 'i');
+          const match = qLower.match(pattern1) || qLower.match(pattern2);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            const unit = (match[2] || 'carton').toLowerCase();
+            if (unit.includes('pouch') || unit.includes('puch') || unit.includes('puche') || unit.includes('poche') || unit.includes('bag')) {
+              const cartons = Math.ceil(num / 50);
+              return { cartons, isPouch: true, rawNum: num };
+            }
+            return { cartons: num, isPouch: false, rawNum: num };
+          }
+          return null;
+        };
+
         // Xiu Chen's exact demo request (200 pouches original, 2 cartons oat milk)
         if (qLower.includes('200') && qLower.includes('original') && qLower.includes('2') && qLower.includes('oat')) {
           originalQty = 4;
@@ -1349,16 +1366,13 @@ document.addEventListener('DOMContentLoaded', () => {
           mockExplanation.push(`- **200 pouches of ESPRESSGO Original** converts to **4 cartons** (50 pouches per carton)`);
           mockExplanation.push(`- **2 cartons of ESPRESSGO Oat Milk**`);
         } else {
-          // Parse Original (with spelling typo tolerance)
-          const originalMatch = qLower.match(/(\d+)\s*(carton|cartn|ctn|box|pouch|pouches|puches|puch|puche|bag)?s?\s*of\s*original/i);
-          if (originalMatch) {
-            const num = parseInt(originalMatch[1], 10);
-            const unit = (originalMatch[2] || 'carton').toLowerCase();
-            if (unit.includes('pouch') || unit.includes('puch') || unit.includes('puche') || unit.includes('bag')) {
-              originalQty = Math.ceil(num / 50);
-              mockExplanation.push(`- **${num} pouches of Original** converts to **${originalQty} carton(s)** (50 pouches per carton)`);
+          // Parse Original (with spelling typo tolerance and two-way pattern matching)
+          const origParse = parseProductQty('original');
+          if (origParse) {
+            originalQty = origParse.cartons;
+            if (origParse.isPouch) {
+              mockExplanation.push(`- **${origParse.rawNum} pouches of Original** converts to **${originalQty} carton(s)** (50 pouches per carton)`);
             } else {
-              originalQty = num;
               mockExplanation.push(`- **${originalQty} carton(s) of Original**`);
             }
           } else if (qLower.includes('original')) {
@@ -1367,16 +1381,13 @@ document.addEventListener('DOMContentLoaded', () => {
             else { originalQty = 1; mockExplanation.push(`- **1 carton of Original**`); }
           }
 
-          // Parse Oat Milk (with spelling typo tolerance)
-          const oatMatch = qLower.match(/(\d+)\s*(carton|cartn|ctn|box|pouch|pouches|puches|puch|puche|bag)?s?\s*of\s*oat/i);
-          if (oatMatch) {
-            const num = parseInt(oatMatch[1], 10);
-            const unit = (oatMatch[2] || 'carton').toLowerCase();
-            if (unit.includes('pouch') || unit.includes('puch') || unit.includes('puche') || unit.includes('bag')) {
-              oatQty = Math.ceil(num / 50);
-              mockExplanation.push(`- **${num} pouches of Oat Milk** converts to **${oatQty} carton(s)** (50 pouches per carton)`);
+          // Parse Oat Milk (with spelling typo tolerance and two-way pattern matching)
+          const oatParse = parseProductQty('oat');
+          if (oatParse) {
+            oatQty = oatParse.cartons;
+            if (oatParse.isPouch) {
+              mockExplanation.push(`- **${oatParse.rawNum} pouches of Oat Milk** converts to **${oatQty} carton(s)** (50 pouches per carton)`);
             } else {
-              oatQty = num;
               mockExplanation.push(`- **${oatQty} carton(s) of Oat Milk**`);
             }
           } else if (qLower.includes('oat')) {
@@ -1429,12 +1440,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function processAnswer(rawAnswer) {
       removeTypingIndicator();
 
-      // Regex to check globally for all [[ORDER_ACTION: productId, cartons]] tokens
-      const actionRegex = /\[\[ORDER_ACTION:\s*([a-zA-Z0-9_-]+),\s*(\d+)\s*(?:carton|ctn|box)?s?\s*\]\]/gi;
+      // Regex to check globally for all [[ORDER_ACTION: productId, cartons]] tokens (supports single/double brackets)
+      const actionRegex = /\[{1,2}ORDER_ACTION:\s*([a-zA-Z0-9_-]+),\s*(\d+)\s*(?:carton|ctn|box)?s?\s*\]{1,2}/gi;
       const matches = [...rawAnswer.matchAll(actionRegex)];
 
       // Strip out structured brackets entirely to keep the visual UI clean
-      const cleanedAnswer = rawAnswer.replace(/\[\[.*?\]\]/g, '').trim();
+      const cleanedAnswer = rawAnswer.replace(/\[{1,2}ORDER_ACTION:.*?\]{1,2}/gi, '').trim();
 
       addMessage('agent', cleanedAnswer);
 
@@ -1450,7 +1461,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         for (const match of matches) {
           let productId = match[1].toLowerCase().trim();
-          const cartons = parseInt(match[2], 10);
+          let cartons = parseInt(match[2], 10);
+
+          // AUTO-HEALING: If the AI made a mistake and emitted the pouch count directly in the token
+          // (e.g. [[ORDER_ACTION: product, 100]] instead of 2, when the user asked for 100 pouches),
+          // we dynamically divide it by 50 and round up!
+          if (cartons >= 50 && qLower.includes(String(cartons)) && (qLower.includes('pouch') || qLower.includes('puch') || qLower.includes('puche') || qLower.includes('poche') || qLower.includes('bag'))) {
+            console.warn(`⚠️ AI emitted pouch quantity (${cartons}) instead of cartons in token. Auto-converting to cartons...`);
+            cartons = Math.ceil(cartons / 50);
+          }
 
           // HEALING / NORMALIZATION:
           // Heal different spelling variants dynamically
