@@ -1453,15 +1453,17 @@ async function initAccountPage() {
   setAccountLoading(false);
 }
 
+const db = window.sb || window.supabaseClient;
+
 async function loadSubscriptions() {
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("subscriptions")
     .select(`
       *,
       subscription_items (*)
     `)
-    .eq("profile_id", user.id)
+    .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -1474,10 +1476,17 @@ async function loadSubscriptions() {
 
 function renderSubscriptions(subscriptions) {
 
+  console.log("renderSubscriptions", subscriptions);
+
   const container =
-    document.getElementById(
-      "subscriptionsList"
-    );
+    document.getElementById("subscriptionsList");
+
+  console.log(container);
+
+  if (!container) {
+    console.error("subscriptionsList missing");
+    return;
+  }
 
   if (!subscriptions.length) {
 
@@ -1501,83 +1510,101 @@ function renderSubscriptions(subscriptions) {
     return;
   }
 
-  container.innerHTML =
-    subscriptions.map(sub => `
-      <div class="subscription-card">
+  container.innerHTML = subscriptions.map(sub => `
+    <div class="subscription-card">
 
-        <h3>
-          ${sub.frequency}
-        </h3>
+      <div class="subscription-header">
+        <div>
+          <h3>${sub.frequency}</h3>
 
-        <p>
-          Status:
-          ${sub.status}
-        </p>
-
-        <div
-          style="display:flex;gap:.5rem;">
-
-          <button
-            class="btn-dark"
-            onclick="toggleSubscription(
-              '${sub.id}',
-              '${sub.status}'
-            )">
-
-            ${
-              sub.status === 'active'
-                ? 'Pause'
-                : 'Resume'
-            }
-
-          </button>
-
-          <button
-            class="btn-ghost"
-            onclick="cancelSubscription(
-              '${sub.id}'
-            )">
-
-            Cancel
-
-          </button>
-
+          <p>
+            Subscription ID #${sub.id.slice(0, 8)}
+          </p>
         </div>
 
+        <span class="subscription-status ${sub.status}">
+          ${sub.status}
+        </span>
       </div>
-    `).join('');
+
+      <div class="subscription-items">
+        ${(sub.subscription_items || []).map(item => `
+          <div class="subscription-item">
+            <span class="subscription-item-name">
+              ${item.product_id}
+            </span>
+
+            <span class="subscription-item-qty">
+              ${item.cartons} cartons
+            </span>
+          </div>
+        `).join("")}
+      </div>
+
+      <div class="subscription-actions">
+        <button
+          class="btn-dark"
+          onclick="toggleSubscription('${sub.id}','${sub.status}')">
+
+          ${sub.status === "active" ? "Pause" : "Resume"}
+        </button>
+
+        <button
+          class="btn-ghost"
+          onclick="cancelSubscription('${sub.id}')">
+
+          Cancel
+        </button>
+      </div>
+
+    </div>
+  `).join('');
 }
 
-async function toggleSubscription(
-  id,
-  currentStatus
-) {
+async function toggleSubscription(id, currentStatus) {
 
   const newStatus =
     currentStatus === "active"
       ? "paused"
       : "active";
 
-  await supabase
+  const { error } = await db
     .from("subscriptions")
     .update({
       status: newStatus
     })
     .eq("id", id);
 
-  loadSubscriptions();
+  if (error) {
+    console.error(error);
+    alert(error.message);
+    return;
+  }
+
+  await loadSubscriptions();
 }
 
 async function cancelSubscription(id) {
 
-  await supabase
+  const confirmed =
+    confirm("Cancel this subscription?");
+
+  if (!confirmed) return;
+
+  const { error } = await db
     .from("subscriptions")
     .update({
       status: "cancelled"
     })
     .eq("id", id);
 
-  loadSubscriptions();
+  if (error) {
+    console.error(error);
+    alert(error.message);
+    return;
+  }
+
+  await loadSubscriptions();
 }
 
 initAccountPage();

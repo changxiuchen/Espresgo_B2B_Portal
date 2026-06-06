@@ -825,6 +825,49 @@ function bindCheckoutButtons() {
           return;
         }
 
+        const recurring =
+          document.getElementById("recurringOrder").checked;
+
+        const interval =
+          document.getElementById("deliveryInterval").value;
+
+        //--------------------------------
+        // Redirect to subscription setup
+        //--------------------------------
+
+        if (recurring) {
+
+        sessionStorage.setItem(
+          "subscriptionCart",
+          JSON.stringify(
+            lines.map(line => ({
+              product_id: line.p.id,
+              name: line.p.name,
+              cartons: line.qty,
+              price_per_carton: line.tier.price,
+              subtotal: line.subtotal
+            }))
+          )
+        );
+
+        sessionStorage.setItem(
+          "subscriptionInterval",
+          interval
+        );
+
+        console.log("Redirecting to subscriptions");
+
+        window.location.assign("subscriptions.html");
+
+        return;
+      }
+
+        //--------------------------------
+        // Existing success flow
+        //--------------------------------
+
+        showSuccessMessage();
+
         await saveOrderToSupabase(currentUser, lines);
 
         closeModal();
@@ -911,53 +954,5 @@ const deliveryInterval = document.getElementById('deliveryInterval');
 recurringOrder.addEventListener('change', () => {
   deliveryInterval.disabled = !recurringOrder.checked;
 });
-
-async function submitOrder(cartItems) {
-
-  const recurring =
-    document.getElementById("recurringOrder").checked;
-
-  const interval =
-    document.getElementById("deliveryInterval").value;
-
-  //--------------------------------
-  // Existing order logic
-  //--------------------------------
-
-  const order = await createOrder();
-
-  //--------------------------------
-  // Recurring option
-  //--------------------------------
-
-  if (recurring) {
-
-    const { data: subscription } = await supabase
-    .from("subscriptions")
-    .insert({
-      profile_id: currentUser.id,
-      frequency: interval,
-      status: "active",
-      next_delivery_date: new Date().toISOString(),
-      delivery_address: currentUser.deliveryAddress,
-      total_amount: totalPrice()
-    })
-    .select()
-    .single();
-
-    const subscriptionItems = cartItems.map(item => ({
-      subscription_id: subscription.id,
-      product_id: item.product_id,
-      sku: item.sku,
-      name: item.name,
-      cartons: item.cartons,
-      price_per_carton: item.price_per_carton
-    }));
-
-    await supabase
-      .from("subscription_items")
-      .insert(subscriptionItems);
-  }
-}
 
 initCatalogPage();

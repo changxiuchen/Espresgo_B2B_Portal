@@ -68,3 +68,276 @@
   .admin-sidebar { display: none; }
   .stat-row { grid-template-columns: repeat(2,1fr); }
 }
+
+/* ============================================================
+   Admin Subscriptions (Enhanced)
+   ============================================================ */
+
+#adminSubscriptions {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 1rem;
+}
+
+/* ── Subscription Card ───────────────────────────────────── */
+.subscription-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1rem 1.25rem;
+
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Header: buyer + meta */
+.subscription-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.subscription-header .buyer {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--brown);
+}
+
+/* Meta info (status, frequency, date) */
+.subscription-header .meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* Status badge */
+.subscription-header .status {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 10px;
+  text-transform: capitalize;
+}
+
+.subscription-header .status.active {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
+.subscription-header .status.paused {
+  background: #fffbeb;
+  color: #b45309;
+  border-color: #fde68a;
+}
+
+.subscription-header .status.cancelled {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+/* ── Items list ─────────────────────────────────────────── */
+.subscription-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0.75rem;
+  background: #faf8f5;
+  border-radius: 10px;
+  border: 1px solid #f0eae4;
+}
+
+.subscription-item-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--brown-lt);
+}
+
+.subscription-item-row .product {
+  flex: 1;
+  font-weight: 500;
+  color: var(--brown);
+}
+
+.subscription-item-row .qty {
+  width: 110px;
+  text-align: center;
+}
+
+.subscription-item-row .price {
+  width: 140px;
+  text-align: right;
+}
+
+/* ── Footer (total + actions) ───────────────────────────── */
+.subscription-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.subscription-footer .total {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brown);
+}
+
+/* Ship button */
+.subscription-footer button {
+  background: var(--amber);
+  color: white;
+  border: none;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: 0.15s ease;
+}
+
+.subscription-footer button:hover {
+  background: #d97706;
+}
+
+/* ── Empty state ─────────────────────────────────────────── */
+.subscription-empty {
+  padding: 1rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.subscription-item-row .sku {
+  width: 90px;
+  text-align: right;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ============================================================
+   Invoice-style Subscription Card
+   ============================================================ */
+
+.invoice-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.25rem;
+  margin-bottom: 14px;
+}
+
+/* Header */
+.invoice-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.invoice-header .company {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--brown);
+}
+
+.invoice-header .meta {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* Status badge */
+.invoice-header .status {
+  font-size: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  border: 1px solid var(--border);
+}
+
+/* Table */
+.invoice-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.75rem;
+}
+
+.invoice-table th {
+  text-align: left;
+  font-size: 11px;
+  color: var(--muted);
+  padding: 10px 8px;
+  border-bottom: 1px solid #f0eae4;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.invoice-table td {
+  padding: 10px 8px;
+  font-size: 13px;
+  color: var(--brown-lt);
+  border-bottom: 1px solid #f7f3ef;
+}
+
+.invoice-table tr:hover td {
+  background: #faf8f5;
+}
+
+/* Product column */
+.inv-product .name {
+  font-weight: 500;
+  color: var(--brown);
+}
+
+.inv-product .sku {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* Alignment helpers */
+.inv-center {
+  text-align: center;
+}
+
+.inv-right {
+  text-align: right;
+}
+
+/* Footer */
+.invoice-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1rem;
+}
+
+.invoice-footer .total {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--brown);
+}
+
+/* Ship button */
+.invoice-footer button {
+  background: var(--amber);
+  color: #fff;
+  border: none;
+  padding: 7px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: 0.15s ease;
+}
+
+.invoice-footer button:hover {
+  background: #d97706;
+}
