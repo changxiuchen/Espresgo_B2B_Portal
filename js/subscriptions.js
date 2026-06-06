@@ -3,6 +3,22 @@ const db = window.sb || window.supabaseClient;
 let products = [];
 let importedItems = [];
 
+function safeToast(title, message = "", type = "success") {
+  if (typeof showToast === "function") {
+    showToast(title, message, type);
+  } else {
+    console.log(title, message, type);
+  }
+}
+
+function unsafeToast(title, message = "", type = "failed") {
+  if (typeof showToast === "function") {
+    showToast(title, message, type);
+  } else {
+    console.log(title, message, type);
+  }
+}
+
 async function loadProducts() {
 
   const { data, error } = await db
@@ -77,7 +93,7 @@ async function createSubscription() {
     isSubmitting = true;
 
     if (!importedItems.length) {
-      alert("Your cart is empty.");
+      unsafeToast("Your cart is empty.");
       isSubmitting = false;
       return;
     }
@@ -118,7 +134,7 @@ async function createSubscription() {
     sessionStorage.removeItem("subscriptionInterval");
     localStorage.removeItem("espressgo_cart");
 
-    alert("Subscription created successfully!");
+    safeToast("Subscription created successfully!");
 
     setTimeout(() => {
       window.location.href = "catalog.html";
@@ -126,7 +142,7 @@ async function createSubscription() {
 
   } catch (err) {
     console.error(err);
-    alert(`Failed to create subscription: ${err.message}`);
+    unsafeToast(`Failed to create subscription: ${err.message}`);
   } finally {
     isSubmitting = false;
   }
