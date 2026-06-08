@@ -347,7 +347,15 @@ async function handleReorder(id) {
    ============================================================ */
 
 function handleInvoice(id) {
-  const order = getMyOrders().find(o => o.id === id);
+  let order;
+  if (typeof Orders !== 'undefined' && typeof Orders.getAll === 'function') {
+    const history = JSON.parse(localStorage.getItem('espressgo_orders') || '[]');
+    order = history.find(o => String(o.id) === String(id));
+  }
+  
+  if (!order && typeof getMyOrders === 'function') {
+    order = getMyOrders().find(o => o.id === id);
+  }
 
   if (!order) {
     showToast('Error', 'Order details not found.', 'error');
@@ -372,202 +380,231 @@ function handleInvoice(id) {
       pdfChunks.push(chunk);
     });
 
-    const dateStr = formatOrderDate(order.dateOrdered);
+    const dateStr = typeof formatOrderDate === 'function' ? formatOrderDate(order.dateOrdered) : new Date(order.dateOrdered || Date.now()).toLocaleDateString('en-SG');
+    
+    const invoiceDate = order.dateOrdered ? new Date(order.dateOrdered) : new Date();
+    const dueDate = new Date(invoiceDate);
+    dueDate.setDate(dueDate.getDate() + 14);
+    const dueDateStr = dueDate.toLocaleDateString('en-SG');
+
     const rightAlignX = 555;
+    const gstRate = 0.09; 
 
-    /* ── Header ─────────────────────────────────────────── */
+    /* ── Header: Brand Block & Title ─────────────────────── */
 
     doc
-      .fillColor('#2B1B10')
+      .rect(40, 50, 110, 24)
+      .fill('#000000');
+
+    doc
+      .fillColor('#FFFFFF')
       .font('Helvetica-Bold')
-      .fontSize(24)
-      .text('INVOICE', 40, 50);
+      .fontSize(10)
+      .text('ESPRESSGO', 50, 57, { letterSpacing: 1 });
 
     doc
+      .fillColor('#2B3A42')
       .font('Helvetica')
-      .fontSize(10)
-      .fillColor('#646464')
-      .text(`Invoice ID: #${order.id}`, 350, 45, {
-        width: 205,
-        align: 'right'
-      })
-      .text(`Date Issued: ${dateStr}`, 350, 58, {
-        width: 205,
-        align: 'right'
-      })
-      .text('Payment Terms: Net 30', 350, 71, {
-        width: 205,
+      .fontSize(16)
+      .text(`Tax Invoice #  ${order.id}`, 300, 48, {
+        width: 255,
         align: 'right'
       });
 
     doc
-      .moveTo(40, 95)
-      .lineTo(rightAlignX, 95)
-      .lineWidth(0.5)
-      .strokeColor('#F0EAE4')
-      .stroke();
-
-    /* ── Billing details ────────────────────────────────── */
-
-    doc
-      .fillColor('#2B1B10')
-      .font('Helvetica-Bold')
-      .fontSize(11)
-      .text('Billed To:', 40, 115);
-
-    doc
+      .fillColor('#000000')
       .font('Helvetica')
       .fontSize(10)
-      .fillColor('#2B1B10')
-      .text(user.companyName || order.company || 'Valued Customer', 40, 132)
-      .text(`Attn: ${user.contactName || order.contactName || 'Procurement Team'}`, 40, 147);
+      .text(`Invoice Date: ${dateStr}`, 300, 75, { width: 255, align: 'right' })
+      .font('Helvetica-Bold')
+      .text(`Due Date: ${dueDateStr}`, 300, 88, { width: 255, align: 'right' });
 
-    doc.text(
-      user.deliveryAddress || order.deliveryAddress || 'Singapore',
-      40,
-      162,
-      {
-        width: 250
-      }
-    );
+    /* ── Corporate and Client Entities Profile Section ────── */
 
-    /* ── Table header ───────────────────────────────────── */
-
-    let startY = 230;
+    const sectionY = 125;
 
     doc
-      .rect(40, startY, 515, 20)
-      .fill('#FAF8F5');
-
-    doc
-      .fillColor('#786E64')
+      .fillColor('#1E293B')
       .font('Helvetica-Bold')
       .fontSize(9)
-      .text('Item Description', 50, startY + 6)
-      .text('Qty (ctn)', 330, startY + 6, {
-        width: 50,
-        align: 'right'
-      })
-      .text('Price/ctn', 380, startY + 6, {
-        width: 90,
-        align: 'right'
-      })
-      .text('Total Amount', 480, startY + 6, {
-        width: 70,
-        align: 'right'
-      });
+      .text('BILL TO', 40, sectionY);
 
-    /* ── Items ──────────────────────────────────────────── */
+    const currentUser = typeof Auth !== 'undefined' ? Auth.getUser() : null;
+    const companyDisplay = order.company || (currentUser ? currentUser.companyName : 'Valued B2B Customer');
+    const contactDisplay = order.contactName || (currentUser ? currentUser.contactName : 'Procurement Manager');
+    const addressDisplay = order.deliveryAddress || (currentUser ? currentUser.deliveryAddress : 'Singapore Deliveries');
 
-    let currentY = startY + 20;
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(10)
+      .text(companyDisplay, 40, sectionY + 16)
+      .font('Helvetica')
+      .fillColor('#334155')
+      .text(`Attn: ${contactDisplay}`, 40, sectionY + 29)
+      .text(addressDisplay, 40, sectionY + 42, { width: 220 })
+      .text('GST Reg No: [Customer GST Reg No]', 40, sectionY + 65);
+
+    doc
+      .fillColor('#1E293B')
+      .font('Helvetica-Bold')
+      .fontSize(9)
+      .text('ESPRESSGO', 320, sectionY);
 
     doc
       .font('Helvetica')
       .fontSize(10)
-      .fillColor('#2B1B10');
+      .fillColor('#334155')
+      .text('180 Ang Mo Kio Avenue 8, Singapore 569830', 320, sectionY + 16, { width: 235 })
+      .text('GST Reg No: [GST Reg No]', 320, sectionY + 42);
 
-    (order.items || []).forEach(item => {
+    /* ── 5-Column Data Table Header Grid Structure ────────── */
+
+    let tableY = 225;
+    const colWidths = { desc: 210, qty: 60, price: 75, sub: 80, gst: 90 };
+    const colX = {
+      desc: 40,
+      qty: 40 + colWidths.desc,
+      price: 40 + colWidths.desc + colWidths.qty,
+      sub: 40 + colWidths.desc + colWidths.qty + colWidths.price,
+      gst: 40 + colWidths.desc + colWidths.qty + colWidths.price + colWidths.sub
+    };
+
+    doc
+      .rect(40, tableY, 515, 22)
+      .fill('#E2E8F0');
+
+    doc
+      .moveTo(40, tableY)
+      .lineTo(rightAlignX, tableY)
+      .lineWidth(0.5)
+      .strokeColor('#CBD5E1')
+      .stroke();
+
+    doc
+      .fillColor('#334155')
+      .font('Helvetica-Bold')
+      .fontSize(9)
+      .text('DESCRIPTION', colX.desc + 10, tableY + 7)
+      .text('QTY', colX.qty, tableY + 7, { width: colWidths.qty, align: 'center' })
+      .text('UNIT PRICE', colX.price, tableY + 7, { width: colWidths.price, align: 'center' })
+      .text('SUBTOTAL', colX.sub, tableY + 7, { width: colWidths.sub, align: 'center' })
+      .text('GST', colX.gst, tableY + 7, { width: colWidths.gst - 10, align: 'center' });
+
+    doc
+      .moveTo(40, tableY + 22)
+      .lineTo(rightAlignX, tableY + 22)
+      .stroke();
+
+    /* ── Line-Items Render Loop (Strict counts only) ─────── */
+
+    let currentY = tableY + 22;
+    let computedSubtotal = 0;
+    const itemsArray = order.items || [];
+
+    itemsArray.forEach(item => {
       const cartons = Number(item.cartons || 0);
       const pricePerCarton = Number(item.pricePerCarton || 0);
-      const itemTotal = cartons * pricePerCarton;
+      const lineSubtotal = cartons * pricePerCarton;
+      const lineGst = lineSubtotal * gstRate;
+      
+      computedSubtotal += lineSubtotal;
 
       doc
-        .fillColor('#2B1B10')
         .font('Helvetica')
-        .fontSize(10)
-        .text(item.name || 'Product', 50, currentY + 7, {
-          width: 280
-        })
-        .text(String(cartons), 330, currentY + 7, {
-          width: 50,
-          align: 'right'
-        })
-        .text(`SGD $${pricePerCarton.toFixed(2)}`, 380, currentY + 7, {
-          width: 90,
-          align: 'right'
-        })
-        .text(`SGD $${itemTotal.toFixed(2)}`, 480, currentY + 7, {
-          width: 70,
-          align: 'right'
-        });
+        .fontSize(9)
+        .fillColor('#000000')
+        .text(item.name ? String(item.name).toUpperCase() : 'PRODUCT COMPONENT', colX.desc + 10, currentY + 8, { width: colWidths.desc - 15 })
+        .text(String(cartons), colX.qty, currentY + 8, { width: colWidths.qty, align: 'center' })
+        .text(pricePerCarton.toFixed(2), colX.price, currentY + 8, { width: colWidths.price, align: 'center' })
+        .text(lineSubtotal.toFixed(2), colX.sub, currentY + 8, { width: colWidths.sub, align: 'center' })
+        .text(`${lineGst.toFixed(2)} (9%)`, colX.gst, currentY + 8, { width: colWidths.gst - 10, align: 'center' });
 
-      currentY += 24;
+      currentY += 28;
 
       doc
         .moveTo(40, currentY)
         .lineTo(rightAlignX, currentY)
         .lineWidth(0.5)
-        .strokeColor('#E8E0D8')
+        .strokeColor('#CBD5E1')
         .stroke();
     });
 
-    /* ── Summary ────────────────────────────────────────── */
+    // Trace the internal structural column matrix divider lines based on actual item list length
+    [colX.qty, colX.price, colX.sub, colX.gst].forEach(xVal => {
+      doc.moveTo(xVal, tableY).lineTo(xVal, currentY).stroke();
+    });
 
-    currentY += 20;
+    // Outer framing vertical boundary trace line commands
+    doc.moveTo(40, tableY).lineTo(40, currentY).stroke();
+    doc.moveTo(rightAlignX, tableY).lineTo(rightAlignX, currentY).stroke();
 
-    doc
-      .fillColor('#2B1B10')
-      .font('Helvetica-Bold')
-      .fontSize(10)
-      .text('Total Cartons Ordered:', 320, currentY, {
-        width: 140,
-        align: 'right'
-      });
+    /* ── Financial Ledger Checkout Totals Calculation Block ── */
+
+    currentY += 15;
+    const calculatedGst = computedSubtotal * gstRate;
+    const finalGrandTotalDue = computedSubtotal + calculatedGst;
+
+    const summaryLabelX = 320;
+    const summaryValX = 460;
+    const summaryValWidth = 95;
 
     doc
       .font('Helvetica')
-      .text(`${Number(order.totalCartons || 0)} cartons`, 470, currentY, {
-        width: 80,
-        align: 'right'
-      });
+      .fontSize(10)
+      .fillColor('#000000')
+      .text('SUBTOTAL', summaryLabelX, currentY, { width: 130, align: 'right' })
+      .text(`$${computedSubtotal.toFixed(2)}`, summaryValX, currentY, { width: summaryValWidth, align: 'right' });
 
-    currentY += 18;
+    currentY += 16;
+
+    doc
+      .text('GST @ 9%', summaryLabelX, currentY, { width: 130, align: 'right' })
+      .text(`$${calculatedGst.toFixed(2)}`, summaryValX, currentY, { width: summaryValWidth, align: 'right' });
+
+    currentY += 16;
 
     doc
       .font('Helvetica-Bold')
-      .fontSize(12)
-      .fillColor('#2B1B10')
-      .text('Grand Total Due (SGD):', 300, currentY, {
-        width: 160,
-        align: 'right'
-      });
+      .text('Amount Due', summaryLabelX, currentY, { width: 130, align: 'right' })
+      .text(`$${finalGrandTotalDue.toFixed(2)}`, summaryValX, currentY, { width: summaryValWidth, align: 'right' });
+
+    /* ── Bottom Section: Remittance Instructions & Legal Border Box ── */
+
+    currentY += 35;
 
     doc
-      .fillColor('#D97706')
-      .text(`$${Number(order.totalAmount || 0).toFixed(2)}`, 470, currentY, {
-        width: 80,
-        align: 'right'
-      });
-
-    /* ── Footer note ────────────────────────────────────── */
+      .rect(40, currentY, 250, 160)
+      .lineWidth(0.75)
+      .strokeColor('#000000')
+      .stroke();
 
     doc
-      .fillColor('#969696')
-      .font('Helvetica-Oblique')
+      .fillColor('#000000')
+      .font('Helvetica-Bold')
+      .fontSize(9)
+      .text('DBS', 48, currentY + 10)
+      .font('Helvetica')
+      .text('Bank Code: 7171', 48, currentY + 22)
+      .text('Branch Code: 123', 48, currentY + 34)
+      .text('Bank account number:  123-4-567890', 48, currentY + 46)
       .fontSize(8)
-      .text(
-        'Thank you for your business! Payment is due within 30 days via GIRO / Corporate PayNow transfers.',
-        40,
-        currentY + 50,
-        {
-          width: 515,
-          align: 'center'
-        }
-      );
+      .text('Payment must be made within 30 days using the account number given above.', 48, currentY + 68, { width: 235 })
+      .text('3% discount applied for new customer if payment is made 10 days before the credit period ends.', 48, currentY + 110, { width: 235 });
 
-    /* ── Compile and download ───────────────────────────── */
+    doc
+      .font('Helvetica')
+      .fontSize(10)
+      .text('[other payment methods]', 305, currentY + 70);
+
+    /* ── Output Pipeline Compilation Execution Loop ── */
 
     doc.on('end', () => {
-      const blob = new Blob(pdfChunks, {
-        type: 'application/pdf'
-      });
-
+      const blob = new Blob(pdfChunks, { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
 
       const downloadLink = document.createElement('a');
-
       downloadLink.href = url;
-      downloadLink.download = `Invoice_${order.id}.pdf`;
+      downloadLink.download = `Tax_Invoice_${order.id}.pdf`;
 
       document.body.appendChild(downloadLink);
       downloadLink.click();
@@ -575,21 +612,17 @@ function handleInvoice(id) {
 
       URL.revokeObjectURL(url);
 
-      showToast(
-        'Invoice downloaded',
-        `Saved Invoice #${order.id} successfully.`
-      );
+      if (typeof showToast === 'function') {
+        showToast('Invoice downloaded', `Saved Tax Invoice #${order.id} successfully.`, 'success');
+      }
     });
 
     doc.end();
   } catch (error) {
     console.error('Invoice generation failed:', error);
-
-    showToast(
-      'Invoice failed',
-      error.message || 'Could not generate invoice.',
-      'error'
-    );
+    if (typeof showToast === 'function') {
+      showToast('Invoice failed', error.message || 'Could not generate invoice.', 'error');
+    }
   }
 }
 
@@ -1333,7 +1366,7 @@ function renderAll() {
    ============================================================ */
 
 function switchTab(name) {
-  ['overview', 'orders', 'profile', 'billing'].forEach(tab => {
+  ['overview', 'orders', 'profile', 'billing', 'subscriptions'].forEach(tab => {
     const panel = document.getElementById('panel-' + tab);
     const btn = document.getElementById('tab-' + tab);
 
@@ -1414,9 +1447,164 @@ async function initAccountPage() {
 
   initHero();
   renderAll();
+  loadSubscriptions();
   switchTab('overview');
 
   setAccountLoading(false);
+}
+
+const db = window.sb || window.supabaseClient;
+
+async function loadSubscriptions() {
+
+  const { data, error } = await db
+    .from("subscriptions")
+    .select(`
+      *,
+      subscription_items (*)
+    `)
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  renderSubscriptions(data || []);
+}
+
+function renderSubscriptions(subscriptions) {
+
+  console.log("renderSubscriptions", subscriptions);
+
+  const container =
+    document.getElementById("subscriptionsList");
+
+  console.log(container);
+
+  if (!container) {
+    console.error("subscriptionsList missing");
+    return;
+  }
+
+  if (!subscriptions.length) {
+
+    container.innerHTML = `
+      <div class="card"
+           style="padding:2rem;text-align:center;">
+
+        <div style="font-size:2rem;">
+          🔄
+        </div>
+
+        <h3>No subscriptions yet</h3>
+
+        <p style="color:var(--muted);">
+          Create a recurring order from the catalog.
+        </p>
+
+      </div>
+    `;
+
+    return;
+  }
+
+  container.innerHTML = subscriptions.map(sub => `
+    <div class="subscription-card">
+
+      <div class="subscription-header">
+        <div>
+          <h3>${sub.frequency}</h3>
+
+          <p>
+            Subscription ID #${sub.id.slice(0, 8)}
+          </p>
+        </div>
+
+        <span class="subscription-status ${sub.status}">
+          ${sub.status}
+        </span>
+      </div>
+
+      <div class="subscription-items">
+        ${(sub.subscription_items || []).map(item => `
+          <div class="subscription-item">
+            <span class="subscription-item-name">
+              ${item.product_id}
+            </span>
+
+            <span class="subscription-item-qty">
+              ${item.cartons} cartons
+            </span>
+          </div>
+        `).join("")}
+      </div>
+
+      <div class="subscription-actions">
+        <button
+          class="btn-dark"
+          onclick="toggleSubscription('${sub.id}','${sub.status}')">
+
+          ${sub.status === "active" ? "Pause" : "Resume"}
+        </button>
+
+        <button
+          class="btn-ghost"
+          onclick="cancelSubscription('${sub.id}')">
+
+          Cancel
+        </button>
+      </div>
+
+    </div>
+  `).join('');
+}
+
+async function toggleSubscription(id, currentStatus) {
+
+  const newStatus =
+    currentStatus === "active"
+      ? "paused"
+      : "active";
+
+  const { error } = await db
+    .from("subscriptions")
+    .update({
+      status: newStatus
+    })
+    .eq("id", id);
+
+  if (error) {
+    console.error(error);
+    alert(error.message);
+    return;
+  }
+
+  await loadSubscriptions();
+}
+
+async function cancelSubscription(id) {
+
+  const confirmed =
+    confirm("Cancel this subscription?");
+
+  if (!confirmed) return;
+
+  const { error } = await db
+    .from("subscriptions")
+    .update({
+      status: "cancelled"
+    })
+    .eq("id", id);
+
+  if (error) {
+    console.error(error);
+    alert(error.message);
+    return;
+  }
+
+  await loadSubscriptions();
 }
 
 initAccountPage();

@@ -45,6 +45,11 @@
 
       </div>
 
+      <div>
+        <a href="../catalog.html" class="sidebar-link">
+          ← Back to Catalog
+        </a>
+      </div>
       <!-- Nav links -->
       <nav class="sidebar-nav">
 
@@ -86,6 +91,14 @@
           onclick="showPanel('feedback', this)"
           type="button">
           ⭐ Feedback
+        </button>
+
+        <button
+          class="sidebar-link"
+          data-panel="subscriptions"
+          onclick="showPanel('subscriptions', this)"
+          type="button">
+          💰 Subscriptions
         </button>
 
       </nav>
@@ -386,6 +399,33 @@
             </div>
 
           </div>
+        </div>
+
+        <div class="panel" id="panel-subscriptions">
+
+          <div class="admin-header">
+            <h1>Subscriptions</h1>
+            <p>Manage recurring coffee subscriptions.</p>
+          </div>
+
+          <div class="card">
+
+            <div
+              style="padding:1rem 1.5rem;border-bottom:1px solid #F0EAE4;">
+
+              <h2 style="font-size:1rem;color:var(--brown);">
+                Active Subscriptions
+              </h2>
+
+            </div>
+
+            <div
+              id="adminSubscriptions"
+              style="padding:1.5rem;">
+            </div>
+
+          </div>
+
         </div>
 
       </div>

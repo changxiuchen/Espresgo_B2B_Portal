@@ -698,7 +698,133 @@ async function initAdminDashboard() {
   renderProducts();
   renderFeedback();
 
+  loadAdminSubscriptions();
+
   setAdminLoading(false);
+}
+
+async function loadAdminSubscriptions() {
+  try {
+    const { data, error } = await sb
+    .from("subscriptions")
+    .select(`
+      id,
+      created_at,
+      frequency,
+      status,
+      profiles(company_name),
+      subscription_items(
+        id,
+        cartons,
+        price_per_carton,
+        product_id,
+        products (
+          id,
+          name,
+          sku
+        )
+      )
+    `);
+
+    if (error) throw error;
+
+    renderAdminSubscriptions(data || []);
+  } catch (err) {
+    console.error("Subscription load failed:", err);
+  }
+}
+
+function renderAdminSubscriptions(data) {
+  const container = document.getElementById("adminSubscriptions");
+  if (!container) return;
+
+  if (!data.length) {
+    container.innerHTML = `
+      <div class="subscription-empty">
+        No active subscriptions
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = data.map(sub => {
+
+    const items = sub.subscription_items || [];
+
+    const itemsHtml = items.map(item => `
+      <tr>
+        <td class="inv-product">
+          <div class="name">
+            ${item.products?.name || item.product_id}
+          </div>
+          <div class="sku">
+            ${item.products?.sku || ""}
+          </div>
+        </td>
+
+        <td class="inv-center">${item.cartons}</td>
+        <td class="inv-right">$${Number(item.price_per_carton).toFixed(2)}</td>
+        <td class="inv-right">
+          $${(item.cartons * item.price_per_carton).toFixed(2)}
+        </td>
+      </tr>
+    `).join("");
+
+    const total = items.reduce((sum, item) => {
+      return sum + (item.cartons * Number(item.price_per_carton || 0));
+    }, 0);
+
+    return `
+      <div class="invoice-card">
+
+        <!-- HEADER -->
+        <div class="invoice-header">
+          <div>
+            <div class="company">
+              ${sub.profiles?.company_name || "Unknown Company"}
+            </div>
+            <div class="meta">
+              Subscription #${sub.id.slice(0, 8)}
+              • ${sub.frequency}
+              • ${new Date(sub.created_at).toLocaleDateString()}
+            </div>
+          </div>
+
+          <div class="status ${sub.status}">
+            ${sub.status}
+          </div>
+        </div>
+
+        <!-- TABLE -->
+        <table class="invoice-table">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th class="inv-center">Cartons</th>
+              <th class="inv-right">Unit Price</th>
+              <th class="inv-right">Total</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            ${itemsHtml}
+          </tbody>
+        </table>
+
+        <!-- FOOTER -->
+        <div class="invoice-footer">
+          <div class="total">
+            Total: $${total.toFixed(2)}
+          </div>
+
+          <button onclick="shipNow('${sub.id}')">
+            ⚡ Ship Now
+          </button>
+        </div>
+
+      </div>
+    `;
+  }).join("");
 }
 
 initAdminDashboard();

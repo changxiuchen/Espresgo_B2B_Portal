@@ -825,6 +825,49 @@ function bindCheckoutButtons() {
           return;
         }
 
+        const recurring =
+          document.getElementById("recurringOrder").checked;
+
+        const interval =
+          document.getElementById("deliveryInterval").value;
+
+        //--------------------------------
+        // Redirect to subscription setup
+        //--------------------------------
+
+        if (recurring) {
+
+        sessionStorage.setItem(
+          "subscriptionCart",
+          JSON.stringify(
+            lines.map(line => ({
+              product_id: line.p.id,
+              name: line.p.name,
+              cartons: line.qty,
+              price_per_carton: line.tier.price,
+              subtotal: line.subtotal
+            }))
+          )
+        );
+
+        sessionStorage.setItem(
+          "subscriptionInterval",
+          interval
+        );
+
+        console.log("Redirecting to subscriptions");
+
+        window.location.assign("subscriptions.html");
+
+        return;
+      }
+
+        //--------------------------------
+        // Existing success flow
+        //--------------------------------
+
+        showSuccessMessage();
+
         await saveOrderToSupabase(currentUser, lines);
 
         closeModal();
@@ -904,5 +947,12 @@ async function initCatalogPage() {
   updateCheckoutBar();
   bindCheckoutButtons();
 }
+
+const recurringOrder = document.getElementById('recurringOrder');
+const deliveryInterval = document.getElementById('deliveryInterval');
+
+recurringOrder.addEventListener('change', () => {
+  deliveryInterval.disabled = !recurringOrder.checked;
+});
 
 initCatalogPage();
