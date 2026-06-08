@@ -100,7 +100,7 @@ module.exports = async function handler(req, res) {
       }).filter(Boolean).join('\n');
       mockAnswer = `Here are your recent B2B orders:\n\n${orderList}\n\nAll standard SG deliveries take 2-3 business days. You can view full tracking in your Account Dashboard! 🚚 *(Local Mock Mode)*`;
     } else if (qLower.includes('halal')) {
-      mockAnswer = "Yes, absolutely! **EspressGo is 100% Halal-certified**. All of our manufacturing lines in Singapore follow MUIS guidelines. (Note: *This is a local demonstration reply. Add your `OPENROUTER_API_KEY` to Vercel to activate real Gemini AI*).";
+      mockAnswer = "**The final product has not been officially certified**. However, our ingredient formulations are all derived from plant or mineral sources. There are no animal products used. . (Note: *This is a local demonstration reply. Add your `OPENROUTER_API_KEY` to Vercel to activate real Gemini AI*).";
     } else if (qLower.includes('delivery') || qLower.includes('long')) {
       mockAnswer = "Standard B2B delivery in Singapore takes **2 to 3 business days**. For urgent orders submitted before 12 PM, we offer next-day express courier service for an extra SGD 15. (Note: *This is a local demonstration reply. Add your `OPENROUTER_API_KEY` to Vercel to activate real Gemini AI*).";
     } else if (qLower.includes('dairy') || qLower.includes('sugar') || qLower.includes('oat')) {
