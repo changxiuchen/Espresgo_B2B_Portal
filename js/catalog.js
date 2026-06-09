@@ -866,7 +866,7 @@ function bindCheckoutButtons() {
         // Existing success flow
         //--------------------------------
 
-        showSuccessMessage();
+        // showSuccessMessage();
 
         await saveOrderToSupabase(currentUser, lines);
 
