@@ -125,8 +125,8 @@ const Auth = {
     const approvalStatus = profile?.approval_status || 'approved';
     const userRole = profile?.role || 'buyer';
 
-    if (userRole !== 'admin' && approvalStatus !== 'approved') {
-      console.warn('User session invalidated due to non-approved status:', approvalStatus);
+    if (userRole !== 'admin' && approvalStatus === 'rejected') {
+      console.warn('User session invalidated due to rejected status');
       await client.auth.signOut();
       this.clearUser();
       localStorage.removeItem('espressgo_admin');
@@ -177,14 +177,12 @@ const Auth = {
     const approvalStatus = profile?.approval_status || 'approved';
     const userRole = profile?.role || 'buyer';
 
-    if (userRole !== 'admin' && approvalStatus !== 'approved') {
+    if (userRole !== 'admin' && approvalStatus === 'rejected') {
       await client.auth.signOut();
       this.clearUser();
       return {
         ok: false,
-        error: approvalStatus === 'rejected'
-          ? 'Your wholesale account registration has been rejected. Please contact support.'
-          : 'Your wholesale account is pending approval from ESPRESSGO Admin.'
+        error: 'Your wholesale account registration has been rejected. Please contact support.'
       };
     }
 
@@ -245,7 +243,7 @@ const Auth = {
           business_type: businessType,
           delivery_address: '',
           role: 'buyer',
-          approval_status: 'pending'
+          approval_status: 'approved'
         }
       }
     });
@@ -272,7 +270,7 @@ const Auth = {
       business_type: businessType,
       delivery_address: '',
       role: 'buyer',
-      approval_status: 'pending'
+      approval_status: 'approved'
     };
 
     const { error: profileError } = await client
@@ -288,9 +286,8 @@ const Auth = {
 
     const normalizedProfile = this.normalizeProfile(profilePayload, data.user);
 
-    // Explicitly sign out right after registration, since they are pending approval
-    await client.auth.signOut();
-    this.clearUser();
+    // Keep the user signed in so they can browse the B2B catalog instantly
+    this.setUser(normalizedProfile);
 
     return {
       ok: true,

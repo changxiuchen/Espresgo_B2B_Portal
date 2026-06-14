@@ -448,14 +448,10 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
   if (result.ok) {
     if (!isLogin) {
       showToast(
-        'Registration submitted!',
-        'Your wholesale account is pending approval from ESPRESSGO Admin.',
+        'Registration successful!',
+        'Welcome to ESPRESSGO! Redirecting to catalog...',
         'success'
       );
-      switchMode(true);
-      showServerError('Your B2B registration has been received and is pending approval.');
-      resetSubmitButton();
-      return;
     }
 
     let redirectTo = localStorage.getItem('redirectAfterLogin');
@@ -467,7 +463,9 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
       redirectTo = 'catalog.html';
     }
 
-    window.location.href = redirectTo;
+    setTimeout(() => {
+      window.location.href = redirectTo;
+    }, 1200);
     return;
   }
 
