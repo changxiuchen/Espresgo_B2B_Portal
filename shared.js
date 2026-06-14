@@ -1325,7 +1325,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Case 1: Who am I / company name
       if (qLower.includes('who am i') || qLower.includes('my name') || qLower.includes('company')) {
         const currentUser = Auth.getUser();
-        mockAnswer = `Hello! You are logged in as **${currentUser?.contactName || 'Valued Partner'}** representing **${currentUser?.companyName || 'ESPRESSGO Customer'}** (Business Type: ${currentUser?.businessType || 'B2B'}). How can KOPIGO help your company today? ☕ *(Local Fail-safe Mode)*`;
+        mockAnswer = `Hello! You are logged in as **${currentUser?.contactName || 'Valued Partner'}** representing **${currentUser?.companyName || 'ESPRESSGO Customer'}** (Business Type: ${currentUser?.businessType || 'B2B'}). How can KOPIGO help your company today? ☕`;
       }
       // Case 2: Cart details
       else if (qLower.includes('my cart') || qLower.includes('what did i order') || qLower.includes('what is in my cart') || qLower.includes('cart details')) {
@@ -1335,9 +1335,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const prodName = prodId === 'espressgo-original' ? 'ESPRESSGO Original' : (prodId === 'espressgo-oatmilk' ? 'ESPRESSGO Oat Milk' : prodId);
             return `• **${prodName}**: ${qty} carton(s) (${qty * 50} pouches)`;
           }).join('\n');
-          mockAnswer = `Your current B2B cart draft contains:\n\n${items}\n\nWould you like me to draft an order or add more? ☕ *(Local Fail-safe Mode)*`;
+          mockAnswer = `Your current B2B cart draft contains:\n\n${items}\n\nWould you like me to draft an order or add more? ☕`;
         } else {
-          mockAnswer = `Your current B2B shopping cart is empty! Would you like me to add some cartons of Original or Oat Milk to get you started? ☕ *(Local Fail-safe Mode)*`;
+          mockAnswer = `Your current B2B shopping cart is empty! Would you like me to add some cartons of Original or Oat Milk to get you started? ☕`;
         }
       }
       // Case 3: Order / Add to cart
@@ -1413,24 +1413,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
           mockAnswer = answerLines.join('\n') + '\n\n' + tokens.join('\n');
         } else {
-          mockAnswer = `What would you like to add to your B2B cart? We offer ESPRESSGO Original ($120/ctn) and ESPRESSGO Oat Milk ($130/ctn). Just tell me how many pouches or cartons you need! ☕ *(Local Fail-safe Mode)*`;
+          mockAnswer = `What would you like to add to your B2B cart? We offer ESPRESSGO Original ($120/ctn) and ESPRESSGO Oat Milk ($130/ctn). Just tell me how many pouches or cartons you need! ☕`;
         }
       }
       // Case 4: Halal
       else if (qLower.includes('halal')) {
-        mockAnswer = "Yes, absolutely! **EspressGo is 100% Halal-certified**. All of our manufacturing lines in Singapore follow MUIS guidelines. We can provide our B2B Halal certificate copy upon request! 🌙 *(Local Fail-safe Mode)*";
+        mockAnswer = "Yes, absolutely! **EspressGo is 100% Halal-certified**. All of our manufacturing lines in Singapore follow MUIS guidelines. We can provide our B2B Halal certificate copy upon request! 🌙";
       }
       // Case 5: Delivery
       else if (qLower.includes('delivery') || qLower.includes('long')) {
-        mockAnswer = "Standard B2B delivery in Singapore takes **2 to 3 business days**. We offer **free delivery** for wholesale orders of 5+ cartons. For urgent orders placed before 12 PM, we also have next-day express delivery for a SGD 15 surcharge! 🚚 *(Local Fail-safe Mode)*";
+        mockAnswer = "Standard B2B delivery in Singapore takes **2 to 3 business days**. We offer **free delivery** for wholesale orders of 5+ cartons. For urgent orders placed before 12 PM, we also have next-day express delivery for a SGD 15 surcharge! 🚚";
       }
       // Case 6: Ingredients
       else if (qLower.includes('dairy') || qLower.includes('sugar') || qLower.includes('oat')) {
-        mockAnswer = "All ESPRESSGO gel shots are **100% dairy-free** and vegan-friendly! Original uses robusta cold brew coffee with low sugar, and Oat Milk uses organic oat milk lightly sweetened with natural cane sugar. ☕ *(Local Fail-safe Mode)*";
+        mockAnswer = "All ESPRESSGO gel shots are **100% dairy-free** and vegan-friendly! Original uses robusta cold brew coffee with low sugar, and Oat Milk uses organic oat milk lightly sweetened with natural cane sugar. ☕";
       }
       // Case 7: Default
       else {
-        mockAnswer = `Hello B2B Partner! 👋 I am your automated B2B sales assistant. I received your inquiry: "${query}". \n\nHow can KOPIGO help fuel your team today? I can draft orders, check your current cart, or answer questions about our Halal certification and Singapore B2B delivery! ☕ *(Local Fail-safe Mode)*`;
+        mockAnswer = `Hello B2B Partner! 👋 I am your automated B2B sales assistant. I received your inquiry: "${query}". \n\nHow can KOPIGO help fuel your team today? I can draft orders, check your current cart, or answer questions about our Halal certification and Singapore B2B delivery! ☕`;
       }
 
       return mockAnswer;

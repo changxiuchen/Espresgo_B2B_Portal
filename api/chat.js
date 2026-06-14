@@ -82,13 +82,13 @@ module.exports = async function handler(req, res) {
     const qLower = question.toLowerCase();
 
     if (user && (qLower.includes('who am i') || qLower.includes('my name') || qLower.includes('company'))) {
-      mockAnswer = `Hello! You are logged in as **${user.contactName || 'Valued Partner'}** representing **${user.companyName || 'ESPRESSGO Customer'}** (Business Type: ${user.businessType || 'B2B'}). How can KOPIGO help your company today? ☕ *(Local Mock Mode)*`;
+      mockAnswer = `Hello! You are logged in as **${user.contactName || 'Valued Partner'}** representing **${user.companyName || 'ESPRESSGO Customer'}** (Business Type: ${user.businessType || 'B2B'}). How can KOPIGO help your company today? ☕`;
     } else if (cart && typeof cart === 'object' && !Array.isArray(cart) && Object.keys(cart).length > 0 && (qLower.includes('my cart') || qLower.includes('what did i order') || qLower.includes('what is in my cart') || qLower.includes('cart details'))) {
       const items = Object.entries(cart).map(([prodId, qty]) => {
         const prodName = prodId === 'espressgo-original' ? 'ESPRESSGO Original' : (prodId === 'espressgo-oatmilk' ? 'ESPRESSGO Oat Milk' : prodId);
         return `• **${prodName}**: ${qty} carton(s) (${qty * 50} pouches)`;
       }).join('\n');
-      mockAnswer = `Your current B2B cart draft contains:\n\n${items}\n\nWould you like me to draft an order or add more? ☕ *(Local Mock Mode)*`;
+      mockAnswer = `Your current B2B cart draft contains:\n\n${items}\n\nWould you like me to draft an order or add more? ☕`;
     } else if (orders && Array.isArray(orders) && orders.length > 0 && (qLower.includes('order status') || qLower.includes('my orders') || qLower.includes('track order') || qLower.includes('where is my order') || qLower.includes('status of order'))) {
       const orderList = orders.slice(0, 2).map(o => {
         if (!o) return '';
@@ -98,7 +98,7 @@ module.exports = async function handler(req, res) {
         const dateStr = o.dateOrdered ? new Date(o.dateOrdered).toLocaleDateString('en-SG') : 'N/A';
         return `• **Order #${orderId}**: SGD $${amount} | Status: [${status}] | Date: ${dateStr}`;
       }).filter(Boolean).join('\n');
-      mockAnswer = `Here are your recent B2B orders:\n\n${orderList}\n\nAll standard SG deliveries take 2-3 business days. You can view full tracking in your Account Dashboard! 🚚 *(Local Mock Mode)*`;
+      mockAnswer = `Here are your recent B2B orders:\n\n${orderList}\n\nAll standard SG deliveries take 2-3 business days. You can view full tracking in your Account Dashboard! 🚚`;
     } else if (qLower.includes('add') || qLower.includes('order') || qLower.includes('cart') || qLower.includes('purchase') || qLower.includes('buy') || qLower.includes('car')) {
       let originalQty = 0;
       let oatQty = 0;
@@ -158,7 +158,7 @@ module.exports = async function handler(req, res) {
 
       if (originalQty > 0 || oatQty > 0) {
         let answerLines = [
-          `Excellent choice! ☕ I've processed your B2B request *(Local Mock Mode)*:`,
+          `Excellent choice! ☕ I've processed your B2B request:`,
           ...mockExplanation,
           `Drafting this order into your wholesale cart right away!`
         ];
@@ -172,16 +172,20 @@ module.exports = async function handler(req, res) {
 
         mockAnswer = answerLines.join('\n') + '\n\n' + tokens.join('\n');
       } else {
-        mockAnswer = `What would you like to add to your B2B cart? We offer ESPRESSGO Original ($120/ctn) and ESPRESSGO Oat Milk ($130/ctn). Just tell me how many pouches or cartons you need! ☕ *(Local Mock Mode)*`;
+        mockAnswer = `What would you like to add to your B2B cart? We offer ESPRESSGO Original ($120/ctn) and ESPRESSGO Oat Milk ($130/ctn). Just tell me how many pouches or cartons you need! ☕`;
       }
     } else if (qLower.includes('halal')) {
+<<<<<<< Updated upstream
       mockAnswer = "**The final product has not been officially certified**. However, our ingredient formulations are all derived from plant or mineral sources. There are no animal products used. . (Note: *This is a local demonstration reply. Add your `OPENROUTER_API_KEY` to Vercel to activate real Gemini AI*).";
+=======
+      mockAnswer = "Yes, absolutely! **EspressGo is 100% Halal-certified**. All of our manufacturing lines in Singapore follow MUIS guidelines.";
+>>>>>>> Stashed changes
     } else if (qLower.includes('delivery') || qLower.includes('long')) {
-      mockAnswer = "Standard B2B delivery in Singapore takes **2 to 3 business days**. For urgent orders submitted before 12 PM, we offer next-day express courier service for an extra SGD 15. (Note: *This is a local demonstration reply. Add your `OPENROUTER_API_KEY` to Vercel to activate real Gemini AI*).";
+      mockAnswer = "Standard B2B delivery in Singapore takes **2 to 3 business days**. For urgent orders submitted before 12 PM, we offer next-day express courier service for an extra SGD 15.";
     } else if (qLower.includes('dairy') || qLower.includes('sugar') || qLower.includes('oat')) {
-      mockAnswer = "All ESPRESSGO gel shots are **100% dairy-free** and vegan-friendly! Original uses low-sugar robusta cold brew, while Oat Milk uses premium plant-based oat milk and raw cane sugar. (Note: *This is a local demonstration reply. Add your `OPENROUTER_API_KEY` to Vercel to activate real Gemini AI*).";
+      mockAnswer = "All ESPRESSGO gel shots are **100% dairy-free** and vegan-friendly! Original uses low-sugar robusta cold brew, while Oat Milk uses premium plant-based oat milk and raw cane sugar.";
     } else {
-      mockAnswer = `Hello there! I am your automated B2B sales assistant. I received your custom inquiry: "${question}". \n\nTo activate real Gemini Generative AI responses, please set your \`OPENROUTER_API_KEY\` environment variable in Vercel. We can also handle wholesale requests and custom quotes if you contact Damien directly via **<a href='https://wa.me/6587977961' target='_blank'>WhatsApp</a>**!`;
+      mockAnswer = `Hello B2B Partner! 👋 I am your automated B2B sales assistant. I received your custom inquiry: "${question}". \n\nHow can KOPIGO help fuel your team today? I can draft orders, check your current cart, or answer questions about our Halal certification and Singapore B2B delivery! ☕`;
     }
     return res.status(200).json({ answer: mockAnswer });
   }
