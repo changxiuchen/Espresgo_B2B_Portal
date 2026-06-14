@@ -175,11 +175,7 @@ module.exports = async function handler(req, res) {
         mockAnswer = `What would you like to add to your B2B cart? We offer ESPRESSGO Original ($120/ctn) and ESPRESSGO Oat Milk ($130/ctn). Just tell me how many pouches or cartons you need! ☕`;
       }
     } else if (qLower.includes('halal')) {
-<<<<<<< Updated upstream
-      mockAnswer = "**The final product has not been officially certified**. However, our ingredient formulations are all derived from plant or mineral sources. There are no animal products used. . (Note: *This is a local demonstration reply. Add your `OPENROUTER_API_KEY` to Vercel to activate real Gemini AI*).";
-=======
       mockAnswer = "Yes, absolutely! **EspressGo is 100% Halal-certified**. All of our manufacturing lines in Singapore follow MUIS guidelines.";
->>>>>>> Stashed changes
     } else if (qLower.includes('delivery') || qLower.includes('long')) {
       mockAnswer = "Standard B2B delivery in Singapore takes **2 to 3 business days**. For urgent orders submitted before 12 PM, we offer next-day express courier service for an extra SGD 15.";
     } else if (qLower.includes('dairy') || qLower.includes('sugar') || qLower.includes('oat')) {

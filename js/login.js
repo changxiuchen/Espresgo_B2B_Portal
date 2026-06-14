@@ -446,6 +446,18 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
   }
 
   if (result.ok) {
+    if (!isLogin) {
+      showToast(
+        'Registration submitted!',
+        'Your wholesale account is pending approval from ESPRESSGO Admin.',
+        'success'
+      );
+      switchMode(true);
+      showServerError('Your B2B registration has been received and is pending approval.');
+      resetSubmitButton();
+      return;
+    }
+
     let redirectTo = localStorage.getItem('redirectAfterLogin');
     localStorage.removeItem('redirectAfterLogin');
 

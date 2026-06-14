@@ -89,7 +89,8 @@ const Auth = {
       companyName: profile?.company_name || authUser?.user_metadata?.company_name || '',
       businessType: profile?.business_type || authUser?.user_metadata?.business_type || '',
       deliveryAddress: profile?.delivery_address || authUser?.user_metadata?.delivery_address || '',
-      role: profile?.role || authUser?.user_metadata?.role || 'buyer'
+      role: profile?.role || authUser?.user_metadata?.role || 'buyer',
+      approvalStatus: profile?.approval_status || authUser?.user_metadata?.approval_status || 'approved'
     };
   },
 
@@ -119,6 +120,17 @@ const Auth = {
 
     if (profileError) {
       console.error('Failed to load profile:', profileError);
+    }
+
+    const approvalStatus = profile?.approval_status || 'approved';
+    const userRole = profile?.role || 'buyer';
+
+    if (userRole !== 'admin' && approvalStatus !== 'approved') {
+      console.warn('User session invalidated due to non-approved status:', approvalStatus);
+      await client.auth.signOut();
+      this.clearUser();
+      localStorage.removeItem('espressgo_admin');
+      return null;
     }
 
     const normalizedProfile = this.normalizeProfile(profile, authUser);
@@ -162,6 +174,20 @@ const Auth = {
       };
     }
 
+    const approvalStatus = profile?.approval_status || 'approved';
+    const userRole = profile?.role || 'buyer';
+
+    if (userRole !== 'admin' && approvalStatus !== 'approved') {
+      await client.auth.signOut();
+      this.clearUser();
+      return {
+        ok: false,
+        error: approvalStatus === 'rejected'
+          ? 'Your wholesale account registration has been rejected. Please contact support.'
+          : 'Your wholesale account is pending approval from ESPRESSGO Admin.'
+      };
+    }
+
     let finalProfile = profile;
     if (email.toLowerCase() === 'admin@espressgo.sg') {
       const profilePayload = {
@@ -171,7 +197,8 @@ const Auth = {
         company_name: profile?.company_name || 'ESPRESSGO HQ',
         business_type: profile?.business_type || 'hq',
         delivery_address: profile?.delivery_address || 'Singapore HQ',
-        role: 'admin'
+        role: 'admin',
+        approval_status: 'approved'
       };
 
       const { data: upsertedProfile, error: upsertError } = await client
@@ -217,7 +244,8 @@ const Auth = {
           company_name: companyName,
           business_type: businessType,
           delivery_address: '',
-          role: 'buyer'
+          role: 'buyer',
+          approval_status: 'pending'
         }
       }
     });
@@ -243,7 +271,8 @@ const Auth = {
       company_name: companyName,
       business_type: businessType,
       delivery_address: '',
-      role: 'buyer'
+      role: 'buyer',
+      approval_status: 'pending'
     };
 
     const { error: profileError } = await client
@@ -259,7 +288,9 @@ const Auth = {
 
     const normalizedProfile = this.normalizeProfile(profilePayload, data.user);
 
-    this.setUser(normalizedProfile);
+    // Explicitly sign out right after registration, since they are pending approval
+    await client.auth.signOut();
+    this.clearUser();
 
     return {
       ok: true,
@@ -1144,7 +1175,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.body.insertAdjacentHTML('beforeend', socialHTML);
 
   // 2. State & FAQ Data definitions
-  const faqData = [
+  let faqData = [];
+  const defaultFaqData = [
     {
       q: "How long does delivery take?",
       answer: "Singapore B2B logistics typically take **2 to 3 business days** to arrive at your warehouse! 🚚\n\nNeed it faster? We offer **next-day express delivery** for orders placed before 12 PM, with a small SGD 15 surcharge. Free islandwide delivery for orders of 5+ cartons!"
@@ -1230,6 +1262,39 @@ document.addEventListener('DOMContentLoaded', () => {
         handleQuestionClick(idx);
       });
     });
+  }
+
+  // Fetch active FAQs dynamically from Supabase database
+  async function loadFaqsFromSupabase() {
+    const client = getSupabaseClient();
+    if (!client) {
+      faqData = defaultFaqData;
+      renderOptions();
+      return;
+    }
+    try {
+      const { data: faqs, error } = await client
+        .from('faqs')
+        .select('*, faq_categories(name)')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (error) throw error;
+
+      if (faqs && faqs.length > 0) {
+        faqData = faqs.map(f => ({
+          q: f.question,
+          answer: f.answer,
+          categoryName: f.faq_categories?.name || 'General'
+        }));
+      } else {
+        faqData = defaultFaqData;
+      }
+    } catch (e) {
+      console.warn("Failed to load FAQs from Supabase, using default static FAQ data:", e.message);
+      faqData = defaultFaqData;
+    }
+    renderOptions();
   }
 
   // Format response helper: replaces simple markdown bold **text** with HTML <strong>text</strong>
@@ -1551,13 +1616,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Initialize Chat content
-  function initChat() {
+  async function initChat() {
     if (hasInitialized) return;
     hasInitialized = true;
 
     // Greeting Message
     addMessage('agent', "Hello B2B partner! 👋 I am your Smart AI-powered KOPIGO Concierge, powered by Gemini via OpenRouter. Ask me anything about our wholesale pricing, Singapore logistics, caffeine parameters, or procurement! \n\nOr click a shortcut question to begin:");
-    renderOptions();
+    await loadFaqsFromSupabase();
   }
 
   // Toggle widget event listeners
