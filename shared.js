@@ -1546,6 +1546,15 @@ document.addEventListener('DOMContentLoaded', () => {
             productId = 'espressgo-oatmilk';
           }
 
+          // SAFETY GUARD: block ORDER_ACTION for coming-soon / unavailable products.
+          // Even if the AI ignores the Matcha/Decaf rule and emits a token, the cart
+          // is NEVER updated for any product not in the active product list.
+          const AVAILABLE_PRODUCTS = ['espressgo-original', 'espressgo-oatmilk'];
+          if (!AVAILABLE_PRODUCTS.includes(productId)) {
+            console.warn('Blocked ORDER_ACTION for unavailable product: ' + productId + '. Cart NOT updated.');
+            continue;
+          }
+
           console.log(`🤖 AI Order Trigger matched! Adding ${cartons} cartons of ${productId} to cart.`);
           localCart[productId] = (localCart[productId] || 0) + cartons;
 
