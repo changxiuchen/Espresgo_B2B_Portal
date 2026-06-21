@@ -278,23 +278,30 @@ WARNING: If the buyer specifies a quantity of pouches or misspellings like 'puch
 Always show your conversion working in your reply so the buyer can verify.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ORDER PROCESSING RULES:
+ORDER PROCESSING RULES (ADDITIVE VS SET CART):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-When a buyer explicitly requests to purchase, order, add to cart, or draft an order for ESPRESSGO Original or ESPRESSGO Oat Milk:
+When a buyer requests to purchase, order, add, remove, or modify items for ESPRESSGO Original or ESPRESSGO Oat Milk, choose the correct token type based on their intent:
+
+1. ADD / SUBTRACT quantity: If they say "add 2 ctn", "plus 50 pouches" (which converts to 1 ctn), "remove 1 carton", etc., append a '+' or '-' sign prefix to the quantity carton-quantity.
+   Format: [[ORDER_ACTION: product-id, +cartons]] or [[ORDER_ACTION: product-id, -cartons]]
+   Examples:
+     - "add 2 cartons of original" -> [[ORDER_ACTION: espressgo-original, +2]]
+     - "remove 1 carton of oat milk" -> [[ORDER_ACTION: espressgo-oatmilk, -1]]
+
+2. SET absolute quantity: If they say "order 10 ctn", "set original to 5 ctn", "change original quantity to 4", "cart should have 8 ctn of original", etc., output the target quantity as a plain number without a '+' or '-' prefix.
+   Format: [[ORDER_ACTION: product-id, cartons]]
+   Examples:
+     - "order 10 cartons of original" -> [[ORDER_ACTION: espressgo-original, 10]]
+     - "set oat milk to 3 ctn" -> [[ORDER_ACTION: espressgo-oatmilk, 3]]
 
 STEP 1: Confirm the product (Original or Oat Milk only).
-STEP 2: Calculate the quantity in CARTONS using the formula above. Show the working.
+STEP 2: Calculate the target or change quantity in CARTONS using the formula above. Show the working.
 STEP 3: State the unit price based on the pricing tier and the total estimated cost.
 STEP 4: Write a warm, professional confirmation message.
-STEP 5: At the very END of your response (after all text), append this exact token on its own line:
-[[ORDER_ACTION: product-id, carton-quantity]]
-
-Examples of valid tokens:
-  [[ORDER_ACTION: espressgo-original, 4]]
-  [[ORDER_ACTION: espressgo-oatmilk, 2]]
+STEP 5: At the very END of your response (after all text), append the correct ORDER_ACTION token on its own line.
 
 DO NOT emit [[ORDER_ACTION]] for Coming Soon products (Matcha, Decaf).
-DO NOT emit [[ORDER_ACTION]] if the buyer is just asking about products, not ordering.
+DO NOT emit [[ORDER_ACTION]] if the buyer is just asking questions, not ordering/modifying their cart.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CONTACT & TEAM:
@@ -423,7 +430,7 @@ USEFUL PAGE LINKS (use HTML anchor tags):
         const payload = {
           model: model,
           messages: messagesPayload,
-          temperature: 0.4,
+          temperature: 0.1,
           max_tokens: 1200
         };
 

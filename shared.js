@@ -1351,6 +1351,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!text || !text.trim()) return;
 
     const queryText = text.trim();
+    const qLower = queryText.toLowerCase();
 
     // Clear the input bar
     faqUserInput.value = '';
@@ -1471,11 +1472,14 @@ document.addEventListener('DOMContentLoaded', () => {
             `Drafting this order into your wholesale cart right away!`
           ];
 
+          const isAdditive = qLower.includes('add') || qLower.includes('plus') || qLower.includes('more');
+          const prefix = isAdditive ? '+' : '';
+
           if (originalQty > 0) {
-            tokens.push(`[[ORDER_ACTION: espressgo-original, ${originalQty}]]`);
+            tokens.push(`[[ORDER_ACTION: espressgo-original, ${prefix}${originalQty}]]`);
           }
           if (oatQty > 0) {
-            tokens.push(`[[ORDER_ACTION: espressgo-oatmilk, ${oatQty}]]`);
+            tokens.push(`[[ORDER_ACTION: espressgo-oatmilk, ${prefix}${oatQty}]]`);
           }
 
           mockAnswer = answerLines.join('\n') + '\n\n' + tokens.join('\n');
@@ -1507,12 +1511,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function processAnswer(rawAnswer) {
       removeTypingIndicator();
 
-      // Regex to check globally for all [[ORDER_ACTION: productId, cartons]] tokens (supports single/double brackets)
-      const actionRegex = /\[{1,2}ORDER_ACTION:\s*([a-zA-Z0-9_-]+),\s*(\d+)\s*(?:carton|ctn|box)?s?\s*\]{1,2}/gi;
+      // Regex to check globally for all [[ORDER_ACTION: productId, cartons]] tokens (supports single/double brackets and +/- prefix)
+      const actionRegex = /\[{1,2}ORDER_ACTION:\s*([a-zA-Z0-9_-]+),\s*([+-]?\d+)\s*(?:carton|ctn|box)?s?\s*\]{1,2}/gi;
       const matches = [...rawAnswer.matchAll(actionRegex)];
 
       // Strip out structured brackets entirely to keep the visual UI clean
-      const cleanedAnswer = rawAnswer.replace(/\[{1,2}ORDER_ACTION:.*?\]{1,2}/gi, '').trim();
+      let cleanedAnswer = rawAnswer.replace(/\[{1,2}ORDER_ACTION:.*?\]{1,2}/gi, '').trim();
+
+      // Blank bubble protection
+      if (!cleanedAnswer) {
+        cleanedAnswer = "I've updated your draft B2B cart accordingly! ☕ Let me know if you would like to adjust the quantities or add other items.";
+      }
 
       addMessage('agent', cleanedAnswer);
 
@@ -1528,14 +1537,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         for (const match of matches) {
           let productId = match[1].toLowerCase().trim();
-          let cartons = parseInt(match[2], 10);
+          let cartonsStr = match[2].trim();
+          let cartons = parseInt(cartonsStr, 10);
 
           // AUTO-HEALING: If the AI made a mistake and emitted the pouch count directly in the token
           // (e.g. [[ORDER_ACTION: product, 100]] instead of 2, when the user asked for 100 pouches),
           // we dynamically divide it by 50 and round up!
-          if (cartons >= 50 && qLower.includes(String(cartons)) && (qLower.includes('pouch') || qLower.includes('puch') || qLower.includes('puche') || qLower.includes('poche') || qLower.includes('bag'))) {
+          if (Math.abs(cartons) >= 50 && qLower.includes(String(Math.abs(cartons))) && (qLower.includes('pouch') || qLower.includes('puch') || qLower.includes('puche') || qLower.includes('poche') || qLower.includes('bag'))) {
             console.warn(`⚠️ AI emitted pouch quantity (${cartons}) instead of cartons in token. Auto-converting to cartons...`);
-            cartons = Math.ceil(cartons / 50);
+            const sign = cartons < 0 ? -1 : 1;
+            cartons = sign * Math.ceil(Math.abs(cartons) / 50);
           }
 
           // HEALING / NORMALIZATION:
@@ -1555,17 +1566,36 @@ document.addEventListener('DOMContentLoaded', () => {
             continue;
           }
 
-          console.log(`🤖 AI Order Trigger matched! Adding ${cartons} cartons of ${productId} to cart.`);
-          localCart[productId] = (localCart[productId] || 0) + cartons;
+          const isAdditive = cartonsStr.startsWith('+') || cartonsStr.startsWith('-');
+
+          if (isAdditive) {
+            console.log(`🤖 AI Order Trigger matched! Adding/Subtracting ${cartons} cartons of ${productId} to cart.`);
+            localCart[productId] = (localCart[productId] || 0) + cartons;
+          } else {
+            console.log(`🤖 AI Order Trigger matched! Setting cart quantity of ${productId} to ${cartons} cartons.`);
+            localCart[productId] = cartons;
+          }
+
+          if (localCart[productId] <= 0) {
+            delete localCart[productId];
+          }
 
           // If currently viewing catalog.html, execute page-level UI refresh
           if (typeof window.updateCart === 'function') {
-            window.updateCart(productId, localCart[productId]);
+            window.updateCart(productId, localCart[productId] || 0);
           }
 
           // Gather for combined B2B toast display
           const productName = productId === 'espressgo-original' ? 'Original' : (productId === 'espressgo-oatmilk' ? 'Oat Milk' : productId);
-          productsAdded.push(`${cartons} ctn ${productName}`);
+          if (isAdditive) {
+            if (cartons > 0) {
+              productsAdded.push(`Added ${cartons} ctn ${productName}`);
+            } else if (cartons < 0) {
+              productsAdded.push(`Removed ${Math.abs(cartons)} ctn ${productName}`);
+            }
+          } else {
+            productsAdded.push(`Set ${productName} to ${cartons} ctn`);
+          }
         }
 
         // 1. Persist the updated cart state inside localStorage
@@ -1574,7 +1604,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 2. Display combined B2B Toast notification
         if (typeof showToast === 'function' && productsAdded.length > 0) {
           const toastBody = productsAdded.join(' & ');
-          showToast("AI Order Drafted!", `Added: ${toastBody} to your cart.`, "success");
+          showToast("AI Cart Updated!", toastBody, "success");
         }
       }
     }
