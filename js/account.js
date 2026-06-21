@@ -238,6 +238,20 @@ function orderListHTML(list, suffix = '') {
               </div>
             `).join('')}
 
+            <div
+              style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid #F0EAE4;padding-top:.6rem;margin-top:.5rem;">
+
+              <span
+                style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">
+                Total Price
+              </span>
+
+              <span style="font-weight:600;color:var(--brown);">
+                SGD $${Number(order.totalAmount || 0).toFixed(2)}
+              </span>
+
+            </div>
+
           </div>
 
           <div style="display:flex;gap:.6rem;">
@@ -1055,16 +1069,20 @@ function renderProfile() {
 
           <div class="field">
 
-            <label>
-              Email
+            <label for="p-email">
+              Email Address
             </label>
 
-            <div class="input input-muted">
-              ${escapeHTML(u.email || '')}
-            </div>
+            <input
+              class="input"
+              id="p-email"
+              type="email"
+              value="${escapeHTML(u.email || '')}"
+              placeholder="you@company.com"
+              autocomplete="email"/>
 
             <p style="font-size:10px;color:var(--muted-lt);margin-top:4px;">
-              Contact support to change
+              A confirmation link will be sent to your new email address if changed.
             </p>
 
           </div>
@@ -1160,6 +1178,7 @@ async function saveProfile() {
   const companyName = document.getElementById('p-companyName').value.trim();
   const businessType = document.getElementById('p-businessType').value;
   const deliveryAddress = document.getElementById('p-address').value.trim();
+  const newEmail    = (document.getElementById('p-email')?.value || '').trim();
   const errEl = document.getElementById('profile-err');
 
   errEl.textContent = '';
@@ -1183,11 +1202,57 @@ async function saveProfile() {
     return;
   }
 
+  // ── Email validation ──────────────────────────────────────
+  if (!newEmail) {
+    errEl.textContent = '⚠️ Email address is required.';
+    errEl.style.display = 'flex';
+    return;
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+    errEl.textContent = '⚠️ Please enter a valid email address.';
+    errEl.style.display = 'flex';
+    return;
+  }
+
+  const currentUser   = user || Auth.getUser();
+  const emailChanged  = newEmail.toLowerCase() !== (currentUser?.email || '').toLowerCase();
+
+  if (emailChanged) {
+    const client = typeof getSupabaseClient === 'function' ? getSupabaseClient() : null;
+
+    if (client) {
+      // Uniqueness check against profiles table
+      const { data: existingProfile } = await client
+        .from('profiles')
+        .select('id')
+        .eq('email', newEmail.toLowerCase())
+        .maybeSingle();
+
+      if (existingProfile) {
+        errEl.textContent = '⚠️ This email address is already registered to another account.';
+        errEl.style.display = 'flex';
+        return;
+      }
+
+      // Update email via Supabase Auth (sends confirmation to new address)
+      const { error: emailError } = await client.auth.updateUser({ email: newEmail });
+
+      if (emailError) {
+        errEl.textContent = '⚠️ ' + (emailError.message || 'Could not update email address.');
+        errEl.style.display = 'flex';
+        return;
+      }
+    }
+  }
+
+  // ── Save remaining profile fields (+ email in profiles table) ─
   const result = await Auth.updateProfile({
     contactName,
     companyName,
     businessType,
-    deliveryAddress
+    deliveryAddress,
+    email: newEmail
   });
 
   if (!result.ok) {
@@ -1199,10 +1264,11 @@ async function saveProfile() {
   user = Auth.getUser();
   editing = false;
 
-  showToast(
-    'Profile updated',
-    'Your account details have been saved.'
-  );
+  const toastMsg = emailChanged
+    ? 'Check your new inbox for a confirmation link.'
+    : 'Your account details have been saved.';
+
+  showToast('Profile updated', toastMsg);
 
   buildNav('account');
   initHero();

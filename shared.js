@@ -320,6 +320,7 @@ const Auth = {
         company_name: profile.companyName,
         business_type: profile.businessType,
         delivery_address: profile.deliveryAddress,
+        ...(profile.email ? { email: profile.email } : {}),
         updated_at: new Date().toISOString()
       })
       .eq('id', current.id);
@@ -1175,18 +1176,22 @@ document.addEventListener('DOMContentLoaded', () => {
   let faqData = [];
   const defaultFaqData = [
     {
+      categoryName: 'Shipping & Delivery',
       q: "How long does delivery take?",
       answer: "Singapore B2B logistics typically take **2 to 3 business days** to arrive at your warehouse! 🚚\n\nNeed it faster? We offer **next-day express delivery** for orders placed before 12 PM, with a small SGD 15 surcharge. Free islandwide delivery for orders of 5+ cartons!"
     },
     {
+      categoryName: 'Product Info',
       q: "Does EspressGo contain dairy or sugar?",
       answer: "Great question! Here's the breakdown of our two B2B variants:\n\n- **ESPRESSGO Original** — Zero added sugar, 100% dairy-free, and fully vegan. Pure Vietnamese robusta cold brew gel.\n- **ESPRESSGO Oat Milk** — Contains organic oat milk (plant-based, 100% dairy-free) with a light touch of natural brown sugar.\n\nBoth are clean-label and office-friendly! ☕"
     },
     {
+      categoryName: 'Product Info',
       q: "Is EspressGo halal-certified?",
       answer: "Absolutely yes! 🌙 ESPRESSGO is proudly **MUIS Halal-certified**, manufactured to the highest compliance standards here in Singapore.\n\nWe can provide a copy of our Halal certificate upon request — just reach out to Damien via <a href='https://wa.me/6587977961' target='_blank'>WhatsApp</a>!"
     },
     {
+      categoryName: 'Order Tracking',
       q: "Can I track my order?",
       answer: "Yes! Every B2B order comes with **real-time tracking**. 📦\n\nOnce your order is dispatched, you will receive a tracking link via email. You can also monitor all your active orders anytime from your <a href='account.html'>Account Dashboard</a>.\n\nFor urgent tracking queries, contact Damien directly on <a href='https://wa.me/6587977961' target='_blank'>WhatsApp</a> for an instant update!"
     }
