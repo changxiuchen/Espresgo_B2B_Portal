@@ -561,11 +561,9 @@ async function getCurrentSupabaseUser() {
 async function getCurrentProfile() {
   const authUser = await getCurrentSupabaseUser();
 
+  // FIX: If there is no authenticated Supabase user session, 
+  // exit immediately and return null so public visitors can browse!
   if (!authUser) {
-    if (typeof Auth !== "undefined" && Auth.getUser) {
-      return Auth.getUser();
-    }
-
     return null;
   }
 

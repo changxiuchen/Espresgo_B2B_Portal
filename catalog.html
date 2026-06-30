@@ -224,17 +224,18 @@
   <script>
     (async function checkCatalogAccess() {
       try {
-        // 1. Get the authenticated session user
+        // 1. Get the authenticated session user safely
         const { data: { user }, error: authError } = await sb.auth.getUser();
         
-        // If they aren't logged in at all, kick them back to the login page
+        // 🔓 INTENDED B2B PUBLIC FEATURE RESTORATION:
+        // If they are not logged in at all, let them browse the catalog publicly!
         if (authError || !user) {
-          console.log("No active session found. Redirecting to login...");
-          window.location.replace('login.html');
+          console.log("Public visitor detected. Granting read-only catalog access.");
+          revealCatalogContent();
           return;
         }
 
-        // 2. Fetch their record directly from the database table
+        // 2. If they ARE logged in, fetch their profile to check completeness
         const { data: dbProfile, error: dbError } = await sb
           .from('profiles')
           .select('role, company_name, business_type, delivery_address')
@@ -243,11 +244,11 @@
 
         if (dbError) throw dbError;
 
-        // 3. Evaluate registration details
+        // 3. Evaluate active registration details
         if (dbProfile) {
-          // If any field is empty in PostgreSQL, force them to onboarding
+          // If logged in but data fields are empty, push them to complete it
           if (!dbProfile.company_name || !dbProfile.business_type || !dbProfile.delivery_address) {
-            console.log("Profile incomplete. Routing to completion page...");
+            console.log("Logged-in session profile incomplete. Routing to completion page...");
             const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
             
             window.location.replace(isLocalhost 
@@ -255,14 +256,14 @@
               : window.location.origin + '/complete-profile.html'
             );
           } else {
-            console.log("Profile complete. Access granted.");
-            // Sync local state cache
+            console.log("Logged-in session profile complete. Access granted.");
             if (typeof Auth !== 'undefined' && typeof Auth.refreshUser === 'function') {
               await Auth.refreshUser();
             }
+            revealCatalogContent();
           }
         } else {
-          // Row missing entirely (New Google account registration signup)
+          // Row missing entirely (Brand new authenticated Google signup)
           const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
           window.location.replace(isLocalhost 
             ? window.location.origin + '/espresgo_b2b_portal/complete-profile.html' 
@@ -271,6 +272,15 @@
         }
       } catch (error) {
         console.error('Catalog gatekeeper exception:', error);
+        revealCatalogContent(); // Fallback safety to ensure page doesn't stay hidden if a network error occurs
+      }
+
+      // Helper function to safely show the layout elements smoothly
+      function revealCatalogContent() {
+        const content = document.getElementById('main-content');
+        if (content) {
+          content.style.setProperty('display', 'block', 'important');
+        }
       }
     })();
   </script>
