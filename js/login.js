@@ -4,27 +4,45 @@
    Supabase version
    ============================================================ */
 
-
-/* ============================================================
-   Redirect if already logged in
+   
+   /* ============================================================
+   Redirect if already logged in (Safe B2B Profile Bypass)
    ============================================================ */
-
 (async function checkExistingSession() {
   try {
-    const profile = await Auth.refreshUser();
+    // 1. Grab the active authenticated user session token directly
+    const { data: { user }, error: authError } = await sb.auth.getUser();
+    if (authError || !user) return; // Not logged in yet, safe to stay on login screen
 
-    if (profile) {
-      if (profile.role === 'admin') {
-        window.location.href = 'admin/admin-dashboard.html';
-      } else {
-        window.location.href = 'catalog.html';
+    // 2. Query the database table directly for profile details
+    const { data: dbProfile, error: dbError } = await sb
+      .from('profiles')
+      .select('role, company_name, business_type, delivery_address')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (dbError) throw dbError;
+
+    if (dbProfile) {
+      if (dbProfile.role === 'admin') {
+        window.location.replace('admin/admin-dashboard.html');
+        return;
+      }
+      
+      // Only skip the login page if their business profile details are fully filled out!
+      if (dbProfile.company_name && dbProfile.business_type && dbProfile.delivery_address) {
+        console.log("Profile complete. Skipping login screen directly to catalog...");
+        
+        if (typeof Auth !== 'undefined' && typeof Auth.refreshUser === 'function') {
+          await Auth.refreshUser();
+        }
+        window.location.replace('catalog.html');
       }
     }
   } catch (error) {
-    console.error('Session check failed:', error);
+    console.error('Session check validation failed:', error);
   }
 })();
-
 
 /* ============================================================
    Decorative pouch trio on the brand panel
@@ -479,3 +497,38 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
    ============================================================ */
 
 switchMode(true);
+
+/* ============================================================
+   Google OAuth Event Handler
+   ============================================================ */
+
+// Need to add page to continue registration (to fill up info for profile table)
+// fix that after login, it will bring to home page with login button still visible insteaed of profile pic
+// recheck the allowed google accounts since is testing status
+
+const googleBtn = document.getElementById('google-signin-btn');
+if (googleBtn) {
+  googleBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    try {
+      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const targetRedirect = isLocalhost 
+        ? window.location.origin + '/espresgo_b2b_portal/catalog.html' 
+        : window.location.origin + '/catalog.html';
+
+      const { data, error } = await sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: targetRedirect,
+
+          // Prompt to select Google account, remove if want to allow it to remember previous login
+          // and allow to log straight in
+          queryParams: { prompt: 'select_account' }
+        }
+      });
+      if (error) throw error;
+    } catch (error) {
+      console.error('Google OAuth initialization failed:', error);
+    }
+  });
+}

@@ -221,6 +221,60 @@
   <!-- Shared utilities -->
   <script src="shared.js"></script>
 
+  <script>
+    (async function checkCatalogAccess() {
+      try {
+        // 1. Get the authenticated session user
+        const { data: { user }, error: authError } = await sb.auth.getUser();
+        
+        // If they aren't logged in at all, kick them back to the login page
+        if (authError || !user) {
+          console.log("No active session found. Redirecting to login...");
+          window.location.replace('login.html');
+          return;
+        }
+
+        // 2. Fetch their record directly from the database table
+        const { data: dbProfile, error: dbError } = await sb
+          .from('profiles')
+          .select('role, company_name, business_type, delivery_address')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (dbError) throw dbError;
+
+        // 3. Evaluate registration details
+        if (dbProfile) {
+          // If any field is empty in PostgreSQL, force them to onboarding
+          if (!dbProfile.company_name || !dbProfile.business_type || !dbProfile.delivery_address) {
+            console.log("Profile incomplete. Routing to completion page...");
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            
+            window.location.replace(isLocalhost 
+              ? window.location.origin + '/espresgo_b2b_portal/complete-profile.html' 
+              : window.location.origin + '/complete-profile.html'
+            );
+          } else {
+            console.log("Profile complete. Access granted.");
+            // Sync local state cache
+            if (typeof Auth !== 'undefined' && typeof Auth.refreshUser === 'function') {
+              await Auth.refreshUser();
+            }
+          }
+        } else {
+          // Row missing entirely (New Google account registration signup)
+          const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+          window.location.replace(isLocalhost 
+            ? window.location.origin + '/espresgo_b2b_portal/complete-profile.html' 
+            : window.location.origin + '/complete-profile.html'
+          );
+        }
+      } catch (error) {
+        console.error('Catalog gatekeeper exception:', error);
+      }
+    })();
+  </script>
+
   <!-- Page logic: cart management, modal, order submission -->
   <script src="js/catalog.js"></script>
 

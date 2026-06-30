@@ -1699,4 +1699,25 @@ document.addEventListener('DOMContentLoaded', () => {
       faqWidget.classList.remove('open');
     }
   });
+
+  // ── Real-Time Auth Broadcaster Sync ──
+  const client = getSupabaseClient();
+  if (client) {
+    client.auth.onAuthStateChange(async (event, session) => {
+      console.log(`Supabase Auth Event Broadcasted: ${event}`);
+      
+      // If a login or token refresh is caught, re-verify data variables and rebuild the header dynamically
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        const activePage = window.location.pathname.split('/').pop().replace('.html', '') || 'catalog';
+        
+        // Quietly pull fresh user data profiles into storage
+        await Auth.refreshUser(); 
+        
+        // Re-execute your navigation rendering engine with new data parameters!
+        if (typeof buildNav === 'function') {
+          buildNav(activePage);
+        }
+      }
+    });
+  }
 });
