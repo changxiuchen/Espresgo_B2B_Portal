@@ -436,12 +436,10 @@ function renderAll() {
 
 
 /* ============================================================
-   Place order
+   Place order with Stripe Redirect
    ============================================================ */
-
 document.getElementById('place-order-btn').addEventListener('click', async () => {
   const placeBtn = document.getElementById('place-order-btn');
-
   const lines = getOrderLines();
 
   if (!lines.length) {
@@ -450,69 +448,60 @@ document.getElementById('place-order-btn').addEventListener('click', async () =>
   }
 
   placeBtn.disabled = true;
-  placeBtn.textContent = 'Submitting…';
-
-  const refreshedUser = await Auth.refreshUser();
-
-  if (!refreshedUser) {
-    localStorage.setItem('redirectAfterLogin', 'quick-order.html');
-    window.location.href = 'login.html';
-    return;
-  }
-
-  user = refreshedUser;
-
-  const totalCtn = getTotalCartons(lines);
-  const totalAmt = getTotalAmount(lines);
+  placeBtn.textContent = 'Connecting to Payment...';
 
   try {
-    await Orders.add({
-      company: user.companyName,
-      contactName: user.contactName || user.email,
-      businessType: user.businessType,
-      items: lines.map(({ p, qty, tier }) => ({
-        sku: p.sku,
-        name: p.name,
-        cartons: qty,
-        pricePerCarton: tier.price
-      })),
-      totalCartons: totalCtn,
-      totalAmount: totalAmt,
-      status: 'pending',
-      deliveryAddress: user.deliveryAddress || '',
+    // 1. Refresh/Get User Profile
+    const refreshedUser = await Auth.refreshUser();
+    if (!refreshedUser) {
+      localStorage.setItem('redirectAfterLogin', 'quick-order.html');
+      window.location.href = 'login.html';
+      return;
+    }
+
+    // 2. Format the Cart data for server.js
+    // 'quantities' is the object { productId: number } used in this file
+    const formattedCart = Object.entries(quantities).map(([productId, quantity]) => ({
+      product_id: productId,
+      quantity: quantity
+    }));
+
+    console.log("Quick Order - Sending to server:", formattedCart);
+
+    // 3. Request Stripe Session from your Node server (Port 3000)
+    const res = await fetch('http://localhost:3000/create-checkout-session', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        cart: formattedCart,
+        profile: refreshedUser
+      })
     });
+
+    // 4. Handle response
+    const data = await res.json();
+    console.log("Server Response:", data);
+
+    if (data.url) {
+      // Clear the local quantities before leaving
+      // (Optional, or do it on the success page)
+      // quantities = {}; 
+      
+      // Redirect to Stripe
+      window.location.href = data.url;
+    } else {
+      throw new Error(data.error || "Failed to create payment session");
+    }
+
   } catch (error) {
-    console.error('Order failed:', error);
-
-    showToast(
-      'Order failed',
-      error.message || 'Could not save order. Please try again.',
-      'error'
-    );
-
+    console.error('Quick Order Error:', error);
+    showToast('Order failed', error.message, 'error');
+    
     placeBtn.disabled = false;
     placeBtn.textContent = 'Place Order →';
-
-    return;
   }
-
-  document.getElementById('success-summary').textContent =
-    `${totalCtn} cartons · ${(totalCtn * 50).toLocaleString()} pouches · SGD $${totalAmt.toFixed(2)}`;
-
-  document.getElementById('qo-main').style.display = 'none';
-  document.getElementById('success-state').style.display = 'flex';
-
-  quantities = {};
-
-  setTimeout(() => {
-    document.getElementById('success-state').style.display = 'none';
-    document.getElementById('qo-main').style.display = 'block';
-
-    placeBtn.disabled = true;
-    placeBtn.textContent = 'Place Order →';
-
-    renderAll();
-  }, 3500);
 });
 
 

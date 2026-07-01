@@ -1476,7 +1476,6 @@ function setAccountLoading(isLoading) {
   }
 }
 
-
 /* ============================================================
    Initialise page
    ============================================================ */
@@ -1519,158 +1518,113 @@ async function initAccountPage() {
   setAccountLoading(false);
 }
 
-const db = window.sb || window.supabaseClient;
-
 async function loadSubscriptions() {
-
-  const { data, error } = await db
+  // 1. Use 'sb' (your Supabase connection name)
+  // 2. Use 'user_id' (to match your SQL schema)
+  const { data, error } = await sb
     .from("subscriptions")
     .select(`
       *,
       subscription_items (*)
     `)
-    .eq("user_id", user.id)
+    .eq("user_id", user.id) 
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error(error);
+    console.error("Subscription Load Error:", error);
     return;
   }
 
+  console.log("Subscriptions found:", data); // Check your console for this!
   renderSubscriptions(data || []);
 }
 
 function renderSubscriptions(subscriptions) {
-
-  console.log("renderSubscriptions", subscriptions);
-
-  const container =
-    document.getElementById("subscriptionsList");
-
-  console.log(container);
-
-  if (!container) {
-    console.error("subscriptionsList missing");
-    return;
-  }
+  const container = document.getElementById("subscriptionsList");
 
   if (!subscriptions.length) {
-
     container.innerHTML = `
-      <div class="card"
-           style="padding:2rem;text-align:center;">
-
-        <div style="font-size:2rem;">
-          🔄
-        </div>
-
-        <h3>No subscriptions yet</h3>
-
-        <p style="color:var(--muted);">
-          Create a recurring order from the catalog.
+      <div class="card" style="padding:4rem 1.5rem;text-align:center;">
+        <div style="font-size:2.5rem;margin-bottom:.75rem;opacity:.3;">🔄</div>
+        <div style="color:var(--brown);margin-bottom:.35rem;">No active subscriptions</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:1.25rem;">
+          Set up a recurring order in the catalog to save time.
         </p>
-
+        <a href="catalog.html" class="btn-dark btn-sm">Browse Catalog</a>
       </div>
     `;
-
     return;
   }
 
-  container.innerHTML = subscriptions.map(sub => `
-    <div class="subscription-card">
+  container.innerHTML = `
+    <div class="subscriptions-list">
+      ${subscriptions.map(sub => {
+        const isActive = sub.status === 'active';
+        return `
+          <div class="sub-card">
+            <div class="sub-card-header">
+              <h3>${escapeHTML(sub.frequency)} Delivery</h3>
+              <div class="sub-status ${sub.status}">
+                <span class="order-dot" style="background: ${isActive ? '#16a34a' : '#fbbf24'};"></span>
+                ${escapeHTML(sub.status)}
+              </div>
+            </div>
 
-      <div class="subscription-header">
-        <div>
-          <h3>${sub.frequency}</h3>
+            <div class="sub-card-body">
+              <div class="sub-info-item">
+                <span class="sub-info-label">Subscription ID</span>
+                <span class="sub-info-value">#${sub.id.slice(0, 8)}</span>
+              </div>
+              <div class="sub-info-item">
+                <span class="sub-info-label">Started On</span>
+                <span class="sub-info-value">${new Date(sub.created_at).toLocaleDateString()}</span>
+              </div>
+            </div>
 
-          <p>
-            Subscription ID #${sub.id.slice(0, 8)}
-          </p>
-        </div>
-
-        <span class="subscription-status ${sub.status}">
-          ${sub.status}
-        </span>
-      </div>
-
-      <div class="subscription-items">
-        ${(sub.subscription_items || []).map(item => `
-          <div class="subscription-item">
-            <span class="subscription-item-name">
-              ${item.product_id}
-            </span>
-
-            <span class="subscription-item-qty">
-              ${item.cartons} cartons
-            </span>
+            <div class="sub-card-actions">
+              <button class="btn-dark btn-sm" onclick="toggleSubscription('${sub.id}', '${sub.status}')">
+                ${isActive ? '⏸ Pause' : '▶️ Resume'}
+              </button>
+              <button class="btn-ghost btn-sm" style="color: #ef4444;" onclick="cancelSubscription('${sub.id}')">
+                ✕ Cancel
+              </button>
+            </div>
           </div>
-        `).join("")}
-      </div>
-
-      <div class="subscription-actions">
-        <button
-          class="btn-dark"
-          onclick="toggleSubscription('${sub.id}','${sub.status}')">
-
-          ${sub.status === "active" ? "Pause" : "Resume"}
-        </button>
-
-        <button
-          class="btn-ghost"
-          onclick="cancelSubscription('${sub.id}')">
-
-          Cancel
-        </button>
-      </div>
-
+        `;
+      }).join('')}
     </div>
-  `).join('');
+  `;
 }
 
 async function toggleSubscription(id, currentStatus) {
+  const newStatus = currentStatus === "active" ? "paused" : "active";
 
-  const newStatus =
-    currentStatus === "active"
-      ? "paused"
-      : "active";
-
-  const { error } = await db
+  const { error } = await sb
     .from("subscriptions")
-    .update({
-      status: newStatus
-    })
+    .update({ status: newStatus })
     .eq("id", id);
 
   if (error) {
-    console.error(error);
-    alert(error.message);
-    return;
+    showToast("Error", error.message, "error");
+  } else {
+    loadSubscriptions();
   }
-
-  await loadSubscriptions();
 }
 
 async function cancelSubscription(id) {
+  if (!confirm("Are you sure you want to cancel this subscription?")) return;
 
-  const confirmed =
-    confirm("Cancel this subscription?");
-
-  if (!confirmed) return;
-
-  const { error } = await db
+  const { error } = await sb
     .from("subscriptions")
-    .update({
-      status: "cancelled"
-    })
+    .update({ status: "cancelled" })
     .eq("id", id);
 
   if (error) {
-    console.error(error);
-    alert(error.message);
-    return;
+    showToast("Error", error.message, "error");
+  } else {
+    showToast("Cancelled", "Subscription stopped.");
+    loadSubscriptions();
   }
-
-  await loadSubscriptions();
 }
 
 initAccountPage();

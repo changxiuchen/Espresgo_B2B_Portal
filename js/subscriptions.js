@@ -1,178 +1,177 @@
+/* js/subscriptions.js — Optimized & Fixed */
 const db = window.sb || window.supabaseClient;
 
-let products = [];
 let importedItems = [];
+let isSubmitting = false;
 
-function safeToast(title, message = "", type = "success") {
-  if (typeof showToast === "function") {
-    showToast(title, message, type);
-  } else {
-    console.log(title, message, type);
-  }
+// Helper to show toasts (matches your shared.js setup)
+function notify(title, message, type = "success") {
+    if (typeof showToast === "function") {
+        showToast(title, message, type);
+    } else {
+        alert(title + ": " + message);
+    }
 }
 
-function unsafeToast(title, message = "", type = "failed") {
-  if (typeof showToast === "function") {
-    showToast(title, message, type);
-  } else {
-    console.log(title, message, type);
-  }
-}
+async function renderSubscriptionSummary() {
+    console.log("Reading session storage...");
+    const rawData = sessionStorage.getItem("subscriptionCart");
+    
+    if (!rawData) {
+        console.warn("No subscription cart found in storage.");
+        notify("Empty Cart", "No items found to subscribe to.", "error");
+        setTimeout(() => window.location.href = "catalog.html", 1500);
+        return;
+    }
 
-async function loadProducts() {
+    importedItems = JSON.parse(rawData);
+    console.log("Imported Items:", importedItems);
 
-  const { data, error } = await db
-    .from("products")
-    .select("*")
-    .eq("active", true)
-    .order("created_at", { ascending: true });
+    const container = document.getElementById("subscription-items");
+    if (!container) return;
 
-  if (error) throw error;
+    container.innerHTML = importedItems.map(item => `
+        <div class="subscription-item" style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--sand);">
+            <div>
+                <strong>${item.name}</strong><br>
+                <small>${item.cartons} Cartons @ $${item.price_per_carton.toFixed(2)}/ctn</small>
+            </div>
+            <div>$${(item.cartons * item.price_per_carton).toFixed(2)}</div>
+        </div>
+    `).join("");
 
-  return data;
-}
-
-async function renderSubscriptionProducts() {
-
-  products = await loadProducts();
-
-  importedItems = JSON.parse(
-    sessionStorage.getItem("subscriptionCart") || "[]"
-  );
-
-  const selectedMap = new Map(
-    importedItems.map(item => [
-      item.product_id,
-      item
-    ])
-  );
-
-  const container =
-    document.getElementById("subscription-items");
-
-  container.innerHTML = importedItems.map(item => `
-    <div class="subscription-item">
-      <div class="subscription-product">
-        <strong>${item.name}</strong>
-      </div>
-
-      <div>
-        ${item.cartons} carton${item.cartons > 1 ? "s" : ""}
-      </div>
-    </div>
-  `).join("");
-
-  updateSubscriptionTotal();
+    updateSubscriptionTotal();
 }
 
 function updateSubscriptionTotal() {
-
-  console.log(importedItems);
-
-  const total = importedItems.reduce((sum, item) => {
-
-    const cartons = Number(item.cartons) || 0;
-    const price = Number(item.price_per_carton) || 0;
-
-    return sum + cartons * price;
-
-  }, 0);
-
-  document.getElementById(
-    "subscription-total"
-  ).innerHTML =
-    `<h3>Total: SGD $${total.toFixed(2)}</h3>`;
+    const total = importedItems.reduce((sum, item) => sum + (item.cartons * item.price_per_carton), 0);
+    const totalEl = document.getElementById("subscription-total");
+    if (totalEl) {
+        totalEl.innerHTML = `<h3>Cycle Total: SGD $${total.toFixed(2)}</h3>`;
+    }
 }
-
-let isSubmitting = false;
 
 async function createSubscription() {
-  try {
-
+    console.log("Create Subscription clicked");
+    
     if (isSubmitting) return;
-    isSubmitting = true;
+    
+    try {
+        isSubmitting = true;
+        const btn = document.getElementById("create-subscription-btn");
+        btn.disabled = true;
+        btn.textContent = "Processing...";
 
-    if (!importedItems.length) {
-      unsafeToast("Your cart is empty.");
-      isSubmitting = false;
-      return;
+        // 1. Get current authenticated user
+        const { data: { user }, error: userError } = await db.auth.getUser();
+        
+        if (userError || !user) {
+            throw new Error("You must be signed in to create a subscription.");
+        }
+
+        const frequency = document.getElementById("frequency").value;
+
+        // 2. Insert the Subscription Header
+        const { data: subscription, error: subError } = await db
+            .from("subscriptions")
+            .insert({
+                frequency: frequency,
+                status: "active",
+                user_id: user.id
+            })
+            .select()
+            .single();
+
+        if (subError) throw new Error("Header save failed: " + subError.message);
+
+        // 3. Insert the Subscription Items
+        const itemsToInsert = importedItems.map(item => ({
+            subscription_id: subscription.id,
+            product_id: item.product_id,
+            cartons: parseInt(item.cartons),
+            price_per_carton: parseFloat(item.price_per_carton)
+        }));
+
+        const { error: itemsError } = await db
+            .from("subscription_items")
+            .insert(itemsToInsert);
+
+        if (itemsError) throw new Error("Items save failed: " + itemsError.message);
+
+        // --- NEW PAYMENT REDIRECT CODE STARTS HERE ---
+        
+        notify("Saving...", "Redirecting to secure payment for first batch.", "success");
+
+        // 4. Get the user profile (to ensure backend gets Company Name/Address)
+        const { data: profile } = await db
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+
+        // 5. Format the cart for your existing server.js
+        const formattedCart = importedItems.map(item => ({
+            product_id: item.product_id,
+            quantity: item.cartons
+        }));
+
+        // 6. Call your existing Stripe endpoint (Port 3000)
+        const res = await fetch('http://localhost:3000/create-checkout-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                cart: formattedCart,
+                profile: profile || user, // Use profile if found, otherwise auth user
+                isSubscription: true,     // Flag for backend
+                subscriptionId: subscription.id 
+            })
+        });
+
+        const data = await res.json();
+
+        // 7. Cleanup and Redirect to Stripe
+        if (data.url) {
+            // Only clear storage once we know payment is ready
+            sessionStorage.removeItem("subscriptionCart");
+            sessionStorage.removeItem("subscriptionInterval");
+            localStorage.removeItem("espressgo_cart");
+            
+            window.location.href = data.url; // Go to Stripe
+        } else {
+            throw new Error(data.error || "Payment session failed.");
+        }
+        
+        // --- NEW PAYMENT REDIRECT CODE ENDS HERE ---
+
+    } catch (err) {
+        console.error("Final Logic Error:", err);
+        notify("Error", err.message, "error");
+        
+        // Re-enable button on error
+        const btn = document.getElementById("create-subscription-btn");
+        btn.disabled = false;
+        btn.textContent = "Create Subscription";
+    } finally {
+        isSubmitting = false;
     }
-
-    const frequency =
-      document.getElementById("frequency").value;
-
-    const user = await db.auth.getUser();
-
-    const { data: subscription, error: subError } =
-      await db
-        .from("subscriptions")
-        .insert({
-          frequency,
-          status: "active",
-          user_id: user.data.user.id
-        })
-        .select()
-        .single();
-
-    if (subError) throw subError;
-
-    const items = importedItems.map(item => ({
-      subscription_id: subscription.id,
-      product_id: item.product_id,
-      cartons: item.cartons,
-      price_per_carton: item.price_per_carton
-    }));
-
-    const { error: itemError } =
-      await db
-        .from("subscription_items")
-        .insert(items);
-
-    if (itemError) throw itemError;
-
-    sessionStorage.removeItem("subscriptionCart");
-    sessionStorage.removeItem("subscriptionInterval");
-    localStorage.removeItem("espressgo_cart");
-
-    safeToast("Subscription created successfully!");
-
-    setTimeout(() => {
-      window.location.href = "catalog.html";
-    }, 800);
-
-  } catch (err) {
-    console.error(err);
-    unsafeToast(`Failed to create subscription: ${err.message}`);
-  } finally {
-    isSubmitting = false;
-  }
 }
 
-document.addEventListener(
-  "DOMContentLoaded",
-  async () => {
+document.addEventListener("DOMContentLoaded", async () => {
+    // 1. Load data
+    await renderSubscriptionSummary();
 
-    await renderSubscriptionProducts();
-
-    const savedInterval =
-      sessionStorage.getItem(
-        "subscriptionInterval"
-      );
-
-    const frequencySelect =
-      document.getElementById("frequency");
-
+    // 2. Setup Frequency
+    const savedInterval = sessionStorage.getItem("subscriptionInterval");
+    const frequencySelect = document.getElementById("frequency");
     if (savedInterval && frequencySelect) {
-      frequencySelect.value = savedInterval;
+        frequencySelect.value = savedInterval;
+        // Make it enabled so the user can double check it
+        frequencySelect.disabled = false; 
     }
 
-    document
-      .getElementById(
-        "create-subscription-btn"
-      )
-      .addEventListener(
-        "click",
-        createSubscription
-      );
-  }
-);
+    // 3. Bind Button
+    const createBtn = document.getElementById("create-subscription-btn");
+    if (createBtn) {
+        createBtn.addEventListener("click", createSubscription);
+    }
+});

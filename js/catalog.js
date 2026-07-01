@@ -792,52 +792,27 @@ function bindCheckoutButtons() {
   if (modalPlaceBtn) {
     modalPlaceBtn.addEventListener("click", async () => {
       const placeBtn = modalPlaceBtn;
-
       placeBtn.disabled = true;
       placeBtn.textContent = "Submitting…";
 
       try {
         const currentUser = await getCurrentProfile();
-
         if (!currentUser) {
-          safeToast("Please sign in before placing your order.", "", "error");
-
-          localStorage.setItem("redirectAfterLogin", "catalog.html");
-
+          safeToast("Please sign in first.", "", "error");
           window.location.href = "login.html";
           return;
         }
 
         const lines = getOrderLines();
+        const recurring = document.getElementById("recurringOrder").checked;
+        const interval = document.getElementById("deliveryInterval").value;
 
-        if (!lines.length) {
-          safeToast(
-            "Cart is empty",
-            "Please add items before placing an order.",
-            "error"
-          );
-
-          placeBtn.disabled = false;
-          placeBtn.textContent = "✓ Place Order";
-
-          return;
-        }
-
-        const recurring =
-          document.getElementById("recurringOrder").checked;
-
-        const interval =
-          document.getElementById("deliveryInterval").value;
-
-        //--------------------------------
-        // Redirect to subscription setup
-        //--------------------------------
-
+        // --- NEW BRIDGE LOGIC START ---
         if (recurring) {
-
-        sessionStorage.setItem(
-          "subscriptionCart",
-          JSON.stringify(
+          console.log("Recurring order detected. Redirecting to subscription setup...");
+          
+          // Save the cart data specifically for the subscription page
+          sessionStorage.setItem("subscriptionCart", JSON.stringify(
             lines.map(line => ({
               product_id: line.p.id,
               name: line.p.name,
@@ -845,58 +820,42 @@ function bindCheckoutButtons() {
               price_per_carton: line.tier.price,
               subtotal: line.subtotal
             }))
-          )
-        );
+          ));
+          
+          // Save the chosen frequency
+          sessionStorage.setItem("subscriptionInterval", interval);
 
-        sessionStorage.setItem(
-          "subscriptionInterval",
-          interval
-        );
-
-        console.log("Redirecting to subscriptions");
-
-        window.location.assign("subscriptions.html");
-
-        return;
-      }
-
-        //--------------------------------
-        // Existing success flow
-        //--------------------------------
-
-        // showSuccessMessage();
-
-        await saveOrderToSupabase(currentUser, lines);
-
-        closeModal();
-
-        clearCart();
-        renderAll();
-        updateCheckoutBar();
-
-        const successToast = document.getElementById("order-success");
-
-        if (successToast) {
-          successToast.style.display = "flex";
-
-          setTimeout(() => {
-            successToast.style.display = "none";
-          }, 4000);
-        } else {
-          safeToast(
-            "Order placed",
-            "Your order has been submitted successfully.",
-            "success"
-          );
+          // Redirect to your subscription page
+          window.location.href = "subscriptions.html";
+          return; 
         }
-      } catch (error) {
-        console.error("Order failed:", error);
+        // --- NEW BRIDGE LOGIC END ---
 
-        safeToast(
-          "Order failed",
-          error.message || "Could not save order. Please try again.",
-          "error"
-        );
+        // Normal One-Time Payment Logic
+        const formattedCart = Object.entries(cart).map(([productId, quantity]) => ({
+          product_id: productId,
+          quantity: quantity
+        }));
+
+        const res = await fetch('http://localhost:3000/create-checkout-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cart: formattedCart,
+            profile: currentUser
+          })
+        });
+
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          throw new Error(data.error || "Failed to get checkout URL");
+        }
+
+      } catch (error) {
+        console.error("DETAILED ERROR:", error);
+        safeToast("Order failed", error.message, "error");
       } finally {
         placeBtn.disabled = false;
         placeBtn.textContent = "✓ Place Order";
